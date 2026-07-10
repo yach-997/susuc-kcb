@@ -23,6 +23,40 @@ function parityLabel(p: Course['weekParity']) {
   return ''
 }
 
+function CourseChip({ course }: { course: Course }) {
+  return (
+    <div
+      className={`course-chip flex min-h-[3.4rem] flex-col justify-center ${
+        course.weekParity === 'odd'
+          ? 'odd-week'
+          : course.weekParity === 'even'
+            ? 'even-week'
+            : ''
+      }`}
+      style={{ backgroundColor: courseColor(course.name) }}
+    >
+      <div className="text-[0.78rem] font-semibold leading-snug">{course.name}</div>
+      <div className="mt-1 opacity-95">
+        {course.room}
+        {course.teacher ? ` · ${course.teacher}` : ''}
+      </div>
+      <div className="mt-0.5 flex flex-wrap gap-1 opacity-90">
+        <span>
+          第{course.startSection}
+          {course.endSection !== course.startSection ? `-${course.endSection}` : ''}
+          节
+        </span>
+        <span>· {course.weeks}周</span>
+        {parityLabel(course.weekParity) && (
+          <span className="rounded bg-black/20 px-1">
+            {parityLabel(course.weekParity)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** 从课表里推最大周次，至少 16 */
 function detectMaxWeek(courses: Course[]): number {
   let max = 16
@@ -180,45 +214,10 @@ export function WeekView({
                 <div className="flex flex-col gap-1.5 p-1.5">
                   {group ? (
                     group.map((course) => (
-                      <div
-                        key={course.id}
-                        className={`course-chip flex min-h-[3.4rem] flex-col justify-center ${
-                          course.weekParity === 'odd'
-                            ? 'odd-week'
-                            : course.weekParity === 'even'
-                              ? 'even-week'
-                              : ''
-                        }`}
-                        style={{ backgroundColor: courseColor(course.name) }}
-                      >
-                        <div className="text-[0.78rem] font-semibold leading-snug">
-                          {course.name}
-                        </div>
-                        <div className="mt-1 opacity-95">
-                          {course.room}
-                          {course.teacher ? ` · ${course.teacher}` : ''}
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap gap-1 opacity-90">
-                          <span>
-                            第{course.startSection}
-                            {course.endSection !== course.startSection
-                              ? `-${course.endSection}`
-                              : ''}
-                            节
-                          </span>
-                          <span>· {course.weeks}周</span>
-                          {parityLabel(course.weekParity) && (
-                            <span className="rounded bg-black/20 px-1">
-                              {parityLabel(course.weekParity)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                      <CourseChip key={course.id} course={course} />
                     ))
                   ) : coveredBy ? (
-                    <div className="flex min-h-[3.4rem] items-center rounded-lg bg-black/[0.03] px-2 text-[0.7rem] text-muted">
-                      ↑ 连堂（{coveredBy.name}）
-                    </div>
+                    <CourseChip course={coveredBy} />
                   ) : (
                     <div className="h-full min-h-[3.4rem] rounded-lg border border-dashed border-transparent" />
                   )}
