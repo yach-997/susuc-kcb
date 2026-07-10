@@ -210,20 +210,28 @@ export function currentTeachingWeek(
 
 export function weekMatches(course: Course, week: number | null): boolean {
   if (week == null) return true
-  if (course.weekParity === 'odd' && week % 2 === 0) return false
-  if (course.weekParity === 'even' && week % 2 === 1) return false
-  const range = course.weeks.match(/(\d+)\s*[-~至]\s*(\d+)/)
-  if (range) {
-    const a = Number(range[1])
-    const b = Number(range[2])
-    if (week < a || week > b) return false
-  } else {
-    const single = course.weeks.match(/(\d+)/)
-    if (single && !/[-~至]/.test(course.weeks)) {
-      if (Number(single[1]) !== week) return false
+
+  // 支持多段：如 "1-3,6-13" / "5-7单,8-9"
+  const segments = course.weeks.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
+  const parts = segments.length ? segments : [course.weeks]
+
+  return parts.some((part) => {
+    const parity = parseWeekParity(part)
+    if (parity === 'odd' && week % 2 === 0) return false
+    if (parity === 'even' && week % 2 === 1) return false
+    const range = part.match(/(\d+)\s*[-~至]\s*(\d+)/)
+    if (range) {
+      const a = Number(range[1])
+      const b = Number(range[2])
+      return week >= a && week <= b
     }
-  }
-  return true
+    const single = part.match(/(\d+)/)
+    if (single) return Number(single[1]) === week
+    // 无周次信息时：回退到整门课的 weekParity
+    if (course.weekParity === 'odd' && week % 2 === 0) return false
+    if (course.weekParity === 'even' && week % 2 === 1) return false
+    return true
+  })
 }
 
 export function maxSection(courses: Course[]): number {

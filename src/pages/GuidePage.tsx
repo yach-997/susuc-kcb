@@ -140,7 +140,7 @@ export function GuidePage({ onImport }: Props) {
     <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
       <h1 className="font-display text-2xl font-bold text-ink">导入课表</h1>
       <p className="mt-1 text-sm text-muted leading-relaxed">
-        上传 PDF 后，再填学期和第一周日期，就能自动显示本周 / 今日课程。
+        上传 PDF 后，再填学期和第一周日期，就能自动显示本周 / 今日课程。表格式、列表式导出都支持。
       </p>
 
       <section className="mt-5 rounded-2xl border border-line bg-white/90 p-4 shadow-sm">

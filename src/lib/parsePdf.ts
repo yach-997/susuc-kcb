@@ -91,6 +91,88 @@ function parseDetail(detail: string): {
   }
 }
 
+/** 列表式详情：`(3-4节)1-3周,6-13周/校区:…/场地:…/教师:…` */
+function parseListCell(text: string): {
+  name: string
+  startSection: number
+  endSection: number
+  weekParts: { weeks: string; parity: WeekParity }[]
+  room: string
+  teacher: string
+} | null {
+  const compact = text.replace(/\s+/g, '')
+  const m =
+    compact.match(/^(.+?[★☆■])\((\d{1,2})[-~～](\d{1,2})节\)(.+)$/) ||
+    compact.match(
+      /^([\u4e00-\u9fffA-Za-z0-9（）()\-·]{2,40}?)\((\d{1,2})[-~～](\d{1,2})节\)(.+)$/,
+    )
+  if (!m) return null
+
+  const name = cleanCourseName(
+    (() => {
+      const raw = m[1]
+      const marked = [
+        ...raw.matchAll(/([\u4e00-\u9fffA-Za-z0-9（）()\-·]{1,30}[★☆■])/g),
+      ].map((x) => x[1])
+      if (marked.length) return marked[marked.length - 1]
+      return raw
+    })(),
+  )
+
+  const startSection = Number(m[2])
+  const endSection = Number(m[3])
+  const rest = m[4]
+
+  const weeksRaw = (rest.split('/')[0] || '1-16').replace(/周/g, '')
+  const weekParts = weeksRaw
+    .split(/[,，]/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => parseWeeksField(p))
+
+  if (!weekParts.length) weekParts.push(parseWeeksField('1-16'))
+
+  const room =
+    rest.match(/场地[:：]?([^/]+)/)?.[1]?.trim() ||
+    rest.match(/地点[:：]?([^/]+)/)?.[1]?.trim() ||
+    '未知教室'
+  const teacher =
+    rest.match(/教师[:：]?([^/]+)/)?.[1]?.trim() || '未知教师'
+
+  return { name, startSection, endSection, weekParts, room, teacher }
+}
+
+/** 列表式：同一天内用课名锚点（★ 或独立课名块）切分单元格 */
+function collectListAnchors(dayItems: PdfTextItem[]): PdfTextItem[] {
+  const stars = dayItems
+    .filter((it) => NAME_MARK_RE.test(it.str))
+    .sort((a, b) => a.x - b.x)
+
+  const extras = dayItems.filter((it) => {
+    if (NAME_MARK_RE.test(it.str)) return false
+    if (/[（(]\d|校区|场地|地点|教师|教学班|学分|考核|选课|学时|组成|备注/.test(it.str))
+      return false
+    if (!/^[\u4e00-\u9fffA-Za-z0-9（）()\-·]+$/.test(it.str)) return false
+    if (it.str.length < 2 || it.str.length > 24) return false
+    return stars.every((s) => Math.abs(s.x - it.x) > 55)
+  })
+
+  // 额外锚点按 x 聚类，每簇取最靠上（y 最大）的一条
+  const extraAnchors: PdfTextItem[] = []
+  const sortedExtras = [...extras].sort((a, b) => a.x - b.x)
+  let cluster: PdfTextItem[] = []
+  for (const it of sortedExtras) {
+    if (cluster.length && it.x - cluster[cluster.length - 1].x > 40) {
+      extraAnchors.push(cluster.sort((a, b) => b.y - a.y)[0])
+      cluster = []
+    }
+    cluster.push(it)
+  }
+  if (cluster.length) extraAnchors.push(cluster.sort((a, b) => b.y - a.y)[0])
+
+  return [...stars, ...extraAnchors].sort((a, b) => a.x - b.x)
+}
+
 function cleanCourseName(raw: string): string {
   return raw
     .replace(/[★☆■]/g, '')
@@ -208,7 +290,9 @@ function parseOtherCourses(text: string): Course[] {
 
 /**
  * 把正方教务导出的课表 PDF 文本项解析成课程列表。
- * 依赖坐标：同一门课的「课名 / 节次 / 周数详情」x 接近，星期几由表头列决定。
+ * 兼容两种导出样式：
+ * - 表格式：星期为列，详情以「周数:/地点:」开头（如陈春升样例）
+ * - 列表式：星期为行，详情为「(3-4节)周次/场地:」（如毛茂婷样例）
  */
 export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
   if (!items.length) throw new Error('PDF 里没有可读文字')
@@ -220,6 +304,229 @@ export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
     items.find((it) => /学年第/.test(it.str))?.str ||
     ''
 
+  const courses = isListStylePdf(items)
+    ? parseListStyleCourses(items)
+    : parseGridStyleCourses(items)
+
+  // 去重
+  const seen = new Set<string>()
+  const unique = courses.filter((c) => {
+    const key = `${c.name}|${c.weekday}|${c.startSection}|${c.endSection}|${c.weeks}|${c.room}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  if (!unique.length) {
+    throw new Error('没有识别出课程，请确认上传的是正方教务导出的课表 PDF')
+  }
+
+  return {
+    version: 1,
+    school: student ? `四川轻化工大学 · ${student}` : '四川轻化工大学',
+    updatedAt: new Date().toISOString(),
+    courses: unique,
+    termLabel: term || undefined,
+    termStart: undefined,
+  }
+}
+
+/** 列表式：单元格内带 (节次)周次/场地 */
+function isListStylePdf(items: PdfTextItem[]): boolean {
+  const inline = items.filter((it) =>
+    /\(\d{1,2}\s*[-~～]\s*\d{1,2}\s*节\)/.test(it.str),
+  ).length
+  const zhouShu = items.filter((it) => DETAIL_START_RE.test(it.str)).length
+  return inline >= 2 && inline >= zhouShu
+}
+
+function isNoiseItem(it: PdfTextItem): boolean {
+  const s = it.str.trim()
+  if (!s) return true
+  if (WEEKDAY_RE.test(s)) return true
+  if (/^节次$|^时间段$|^上午$|^下午$|^晚上$/.test(s)) return true
+  if (/学号|打印时间|课程设计|理论学时|实验学时|实践学时/.test(s) && s.length < 80)
+    return true
+  if (/课表$/.test(s)) return true
+  if (/\d{4}-\d{4}学年/.test(s)) return true
+  // 底部节次序号 1..11
+  if (/^\d{1,2}$/.test(s) && it.y < 100) return true
+  if (s.startsWith(':') && s.includes('★')) return true
+  return false
+}
+
+/**
+ * 列表式课表：星期为行、节次为列；课名与「(1-2节)周次/场地/教师」写在同一格。
+ */
+function parseListStyleCourses(items: PdfTextItem[]): Course[] {
+  const labels = items
+    .map((it) => {
+      const m = it.str.match(WEEKDAY_RE)
+      if (!m) return null
+      return { y: it.y, weekday: WEEKDAY_MAP[m[1]], page: it.page }
+    })
+    .filter((x): x is { y: number; weekday: number; page: number } => !!x)
+    .sort((a, b) => b.y - a.y)
+
+  const firstPage = labels.length ? Math.min(...labels.map((x) => x.page)) : 1
+  const bandLabels = labels.filter((l) => l.page === firstPage)
+  if (!bandLabels.length) return []
+
+  const weekdayForY = (y: number): number | null => {
+    let best: number | null = null
+    let bestY = Infinity
+    for (const lab of bandLabels) {
+      if (lab.y + 8 >= y && lab.y < bestY) {
+        bestY = lab.y
+        best = lab.weekday
+      }
+    }
+    return best
+  }
+
+  type DayBucket = { weekday: number; items: PdfTextItem[]; overflows: PdfTextItem[] }
+  const days = new Map<number, DayBucket>()
+  for (const lab of bandLabels) {
+    days.set(lab.weekday, { weekday: lab.weekday, items: [], overflows: [] })
+  }
+
+  const sortedItems = [...items].sort(
+    (a, b) => a.page - b.page || b.y - a.y || a.x - b.x,
+  )
+
+  for (const it of sortedItems) {
+    if (isNoiseItem(it)) continue
+    const wd = weekdayForY(it.y)
+    if (wd == null) continue
+    const bucket = days.get(wd)
+    if (!bucket) continue
+    // 次页内容多为跨页续写，不参与锚点切分
+    if (it.page > firstPage) {
+      bucket.overflows.push(it)
+      continue
+    }
+    if (it.x < 82) continue
+    bucket.items.push(it)
+  }
+
+  const courses: Course[] = []
+
+  for (const bucket of days.values()) {
+    const dayItems = bucket.items
+    if (!dayItems.length && !bucket.overflows.length) continue
+
+    // 以课名锚点切分：课名就近归★，详情归「左侧最近★」（避免长详情挤进隔壁）
+    const anchors = collectListAnchors(dayItems)
+    const groups: PdfTextItem[][] = []
+
+    if (!anchors.length) {
+      groups.push([...dayItems, ...bucket.overflows])
+    } else {
+      const buckets: PdfTextItem[][] = anchors.map(() => [])
+      const isNameish = (s: string) => {
+        if (NAME_MARK_RE.test(s)) return true
+        if (/[;；]/.test(s) || /^[:：]/.test(s.trim())) return false
+        if (
+          /\d+\s*[-~～]\s*\d+\s*节|校区|场地|地点|教师|教学班|学分|考核|选课|学时|组成|备注|方式|思政\d/.test(
+            s,
+          )
+        )
+          return false
+        if (/^\(/.test(s.trim()) || /^\d+[-~～]\d+周/.test(s.trim())) return false
+        return /^[\u4e00-\u9fffA-Za-z0-9（）()\-·]{2,24}$/.test(s)
+      }
+
+      for (const it of dayItems) {
+        let idx = -1
+        if (!isNameish(it.str)) {
+          for (let i = 0; i < anchors.length; i++) {
+            if (anchors[i].x <= it.x + 2) idx = i
+          }
+        } else {
+          let bestD = Infinity
+          for (let i = 0; i < anchors.length; i++) {
+            const d = Math.abs(anchors[i].x - it.x)
+            if (d < bestD && d < 55) {
+              bestD = d
+              idx = i
+            }
+          }
+        }
+        if (idx < 0) {
+          let bestD = Infinity
+          for (let i = 0; i < anchors.length; i++) {
+            const d = Math.abs(anchors[i].x - it.x)
+            if (d < bestD) {
+              bestD = d
+              idx = i
+            }
+          }
+        }
+        buckets[idx].push(it)
+      }
+      groups.push(...buckets)
+
+      if (bucket.overflows.length) {
+        let target = groups.length - 1
+        for (let i = groups.length - 1; i >= 0; i--) {
+          const t = groups[i]
+            .slice()
+            .sort((a, b) => a.page - b.page || b.y - a.y || a.x - b.x)
+            .map((x) => x.str)
+            .join('')
+          const withOverflow = (t + bucket.overflows.map((x) => x.str).join('')).replace(
+            /\s+/g,
+            '',
+          )
+          if (parseListCell(withOverflow)) {
+            target = i
+            break
+          }
+          if (!parseListCell(t.replace(/\s+/g, ''))) {
+            target = i
+            break
+          }
+        }
+        groups[target].push(...bucket.overflows)
+      }
+    }
+
+    for (const group of groups) {
+      const text = group
+        .slice()
+        .sort((a, b) => a.page - b.page || b.y - a.y || a.x - b.x)
+        .map((x) => x.str)
+        .join('')
+      const parsed = parseListCell(text)
+      if (!parsed) continue
+      for (const wp of parsed.weekParts) {
+        courses.push({
+          id: uid(),
+          name: parsed.name,
+          teacher: parsed.teacher,
+          room: parsed.room,
+          weekday: bucket.weekday,
+          startSection: parsed.startSection,
+          endSection: parsed.endSection,
+          weeks: wp.weeks,
+          weekParity: wp.parity,
+          source: 'import',
+        })
+      }
+    }
+  }
+
+  for (const it of items) {
+    if (it.str.includes('其他课程') || it.str.includes('组班上课')) {
+      courses.push(...parseOtherCourses(it.str))
+    }
+  }
+
+  return courses
+}
+
+/** 表格式课表：星期为列，独立节次「1-2」+「周数:」详情 */
+function parseGridStyleCourses(items: PdfTextItem[]): Course[] {
   const courses: Course[] = []
   const pages = [...new Set(items.map((it) => it.page))].sort((a, b) => a - b)
 
@@ -253,7 +560,6 @@ export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
 
     const details = mergeDetailBlocks(pageItems)
 
-    // 节次坐标更居中：先给节次定星期，课名跟最近节次/详情归列，再列内按下标配对
     const secWithDay = sections
       .map((s) => ({ ...s, weekday: weekdayForX(s.x, headers) }))
       .filter((s) => s.weekday != null) as {
@@ -306,7 +612,6 @@ export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
 
       for (let i = 0; i < colNames.length; i++) {
         const nameItem = colNames[i]
-        // 课名与详情数量通常一致，优先按下标；节次可能更少，用最近邻
         const detail =
           (i < colDetails.length ? colDetails[i] : null) ||
           nearest(colDetails, nameItem.x, 60)
@@ -339,11 +644,11 @@ export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
           endSection: sec.end,
           weeks: parsed.weeks,
           weekParity: parsed.parity,
+          source: 'import',
         })
       }
     }
 
-    // 页脚「其他课程」
     for (const it of pageItems) {
       if (it.str.includes('其他课程') || it.str.includes('组班上课')) {
         courses.push(...parseOtherCourses(it.str))
@@ -351,27 +656,7 @@ export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
     }
   }
 
-  // 去重
-  const seen = new Set<string>()
-  const unique = courses.filter((c) => {
-    const key = `${c.name}|${c.weekday}|${c.startSection}|${c.endSection}|${c.weeks}|${c.room}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-
-  if (!unique.length) {
-    throw new Error('没有识别出课程，请确认上传的是正方教务导出的课表 PDF')
-  }
-
-  return {
-    version: 1,
-    school: student ? `四川轻化工大学 · ${student}` : '四川轻化工大学',
-    updatedAt: new Date().toISOString(),
-    courses: unique,
-    termLabel: term || undefined,
-    termStart: undefined,
-  }
+  return courses
 }
 
 /** 在浏览器中用 pdfjs 提取文本项 */
