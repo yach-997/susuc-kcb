@@ -2,6 +2,36 @@ import { useCallback, useEffect, useState } from 'react'
 import type { TimetablePayload } from '../types'
 import { loadTimetable, saveTimetable } from '../lib/storage'
 
+function mergeKeepingManual(
+  incoming: TimetablePayload,
+  existing: TimetablePayload | null,
+): TimetablePayload {
+  const withSource = (payload: TimetablePayload): TimetablePayload => ({
+    ...payload,
+    courses: payload.courses.map((c) => ({
+      ...c,
+      source: c.source || 'import',
+    })),
+  })
+
+  if (!existing?.courses?.length) return withSource(incoming)
+
+  const manuals = existing.courses.filter((c) => c.source === 'manual')
+  if (!manuals.length) return withSource(incoming)
+
+  const imported = incoming.courses.map((c) => ({
+    ...c,
+    source: (c.source === 'manual' ? 'manual' : 'import') as 'import' | 'manual',
+  }))
+
+  return {
+    ...incoming,
+    termLabel: incoming.termLabel || existing.termLabel,
+    termStart: incoming.termStart || existing.termStart,
+    courses: [...imported, ...manuals],
+  }
+}
+
 export function useTimetable() {
   const [data, setData] = useState<TimetablePayload | null>(() => loadTimetable())
 
@@ -14,8 +44,9 @@ export function useTimetable() {
   }, [])
 
   const importData = useCallback((payload: TimetablePayload) => {
-    saveTimetable(payload)
-    setData(payload)
+    const merged = mergeKeepingManual(payload, loadTimetable())
+    saveTimetable(merged)
+    setData(merged)
   }, [])
 
   const refresh = useCallback(() => {

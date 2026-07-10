@@ -14,6 +14,7 @@ interface Props {
   courses: Course[]
   suggestedWeek?: number | null
   termStart?: string
+  onCourseClick?: (course: Course) => void
 }
 
 function detectMaxWeek(courses: Course[]): number {
@@ -36,7 +37,7 @@ function sectionRow(sec: number): number {
   return sec + 2
 }
 
-export function WeekView({ courses, suggestedWeek, termStart }: Props) {
+export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: Props) {
   const maxWeek = useMemo(() => detectMaxWeek(courses), [courses])
   const periodCount = Math.min(Math.max(maxSection(courses), 8), 11)
   const defaultWeek = useMemo(() => {
@@ -203,22 +204,40 @@ export function WeekView({ courses, suggestedWeek, termStart }: Props) {
             const rowStart = sectionRow(course.startSection)
             const rowEnd = sectionRow(endSec) + 1
             const color = courseColor(course.name)
-            return (
-              <div
-                key={course.id}
-                className="z-10 m-[3px] flex flex-col items-center justify-center overflow-hidden rounded-md px-1 py-1 text-center text-white shadow-sm"
-                style={{
-                  gridColumn: course.weekday + 1,
-                  gridRow: `${rowStart} / ${rowEnd}`,
-                  background: `linear-gradient(160deg, ${color}f2, ${color}cc)`,
-                }}
-              >
+            const clickable = course.source === 'manual' && onCourseClick
+            const className =
+              'z-10 m-[3px] flex flex-col items-center justify-center overflow-hidden rounded-md px-1 py-1 text-center text-white shadow-sm'
+            const style = {
+              gridColumn: course.weekday + 1,
+              gridRow: `${rowStart} / ${rowEnd}`,
+              background: `linear-gradient(160deg, ${color}f2, ${color}cc)`,
+            } as const
+            const body = (
+              <>
                 <div className="text-[0.62rem] font-bold leading-snug break-all">
                   {course.name}
                 </div>
                 <div className="mt-0.5 text-[0.52rem] leading-tight opacity-95 break-all">
                   {course.room}
                 </div>
+                {course.source === 'manual' && (
+                  <div className="mt-0.5 text-[0.48rem] opacity-90">自加</div>
+                )}
+              </>
+            )
+            return clickable ? (
+              <button
+                key={course.id}
+                type="button"
+                className={`${className} border-0 p-1`}
+                style={style}
+                onClick={() => onCourseClick(course)}
+              >
+                {body}
+              </button>
+            ) : (
+              <div key={course.id} className={className} style={style}>
+                {body}
               </div>
             )
           })}

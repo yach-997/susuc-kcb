@@ -10,9 +10,10 @@ import {
 interface Props {
   courses: Course[]
   week: number | null
+  onCourseClick?: (course: Course) => void
 }
 
-export function TodayView({ courses, week }: Props) {
+export function TodayView({ courses, week, onCourseClick }: Props) {
   const weekday = todayWeekday()
   const list = courses
     .filter(
@@ -42,7 +43,7 @@ export function TodayView({ courses, week }: Props) {
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line bg-white/70 px-4 py-8 text-center">
           <p className="text-sm font-medium text-ink">今天没有课</p>
-          <p className="mt-1 text-xs text-muted">可以下滑看本周整张课表</p>
+          <p className="mt-1 text-xs text-muted">有补课可点右上角「加课」</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -54,15 +55,20 @@ export function TodayView({ courses, week }: Props) {
               start && end
                 ? `${start}-${end}`
                 : `第${c.startSection}${c.endSection > c.startSection ? `-${c.endSection}` : ''}节`
-            return (
-              <li
-                key={c.id}
-                className="flex overflow-hidden rounded-2xl border border-line/70 bg-white/90 shadow-sm"
-              >
+            const clickable = c.source === 'manual' && onCourseClick
+            const inner = (
+              <>
                 <div className="w-1.5 shrink-0" style={{ background: color }} />
-                <div className="min-w-0 flex-1 px-3 py-2.5">
+                <div className="min-w-0 flex-1 px-3 py-2.5 text-left">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="truncate text-sm font-bold text-ink">{c.name}</h3>
+                    <h3 className="truncate text-sm font-bold text-ink">
+                      {c.name}
+                      {c.source === 'manual' && (
+                        <span className="ml-1.5 align-middle text-[0.65rem] font-semibold text-brand">
+                          自加
+                        </span>
+                      )}
+                    </h3>
                     <span className="shrink-0 text-[0.7rem] font-medium text-muted">
                       {c.startSection === c.endSection
                         ? `第${c.startSection}节`
@@ -73,8 +79,26 @@ export function TodayView({ courses, week }: Props) {
                   <p className="mt-1 truncate text-xs text-ink/80">
                     {c.room}
                     {c.teacher ? ` · ${c.teacher}` : ''}
+                    {clickable ? ' · 点按可改' : ''}
                   </p>
                 </div>
+              </>
+            )
+            return (
+              <li key={c.id}>
+                {clickable ? (
+                  <button
+                    type="button"
+                    onClick={() => onCourseClick(c)}
+                    className="flex w-full overflow-hidden rounded-2xl border border-brand/30 bg-white/90 shadow-sm"
+                  >
+                    {inner}
+                  </button>
+                ) : (
+                  <div className="flex overflow-hidden rounded-2xl border border-line/70 bg-white/90 shadow-sm">
+                    {inner}
+                  </div>
+                )}
               </li>
             )
           })}

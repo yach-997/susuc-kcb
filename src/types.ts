@@ -12,9 +12,11 @@ export interface Course {
   startSection: number
   /** 结束节次（含） */
   endSection: number
-  /** 周次描述，如 "1-16" / "1-8单" / "2-16双" */
+  /** 周次描述，如 "1-16" / "1-8单" / "2-16双" / "5"（仅第5周） */
   weeks: string
   weekParity: WeekParity
+  /** 学生手动添加的补课/调课；重新导入 PDF 时会保留 */
+  source?: 'import' | 'manual'
 }
 
 export interface TimetablePayload {
