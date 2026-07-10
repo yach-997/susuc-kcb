@@ -1,6 +1,7 @@
 import type { Course, TimetablePayload, WeekParity } from '../types'
 import { parseWeekParity, uid } from './storage'
 import { installPdfCompat } from './pdfCompat'
+import { readBlobBuffer } from './importDraft'
 
 export interface PdfTextItem {
   str: string
@@ -818,7 +819,9 @@ export async function extractPdfTextItems(
   const cdnFonts =
     'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.1.200/standard_fonts/'
 
-  const bytes = new Uint8Array(data.slice(0))
+  // 拷贝一份，避免部分手机上底层转移 ArrayBuffer 后二次尝试失败
+  const bytes = new Uint8Array(data.byteLength)
+  bytes.set(new Uint8Array(data))
 
   const tryLoad = async (opts: {
     cMapUrl: string
@@ -832,6 +835,10 @@ export async function extractPdfTextItems(
       cMapUrl: opts.cMapUrl,
       cMapPacked: true,
       standardFontDataUrl: opts.standardFontDataUrl,
+      // 小文件整包加载，减少手机流式/worker 兼容问题
+      disableStream: true,
+      disableAutoFetch: true,
+      useWorkerFetch: false,
     })
     const doc = await loadingTask.promise
     const items: PdfTextItem[] = []
@@ -853,9 +860,11 @@ export async function extractPdfTextItems(
   }
 
   const attempts = [
+    // 手机优先：本地 CMap + 主线程（不依赖 worker 跨域/缓存）
     { cMapUrl: localCmap, standardFontDataUrl: localFonts, worker: false },
     { cMapUrl: localCmap, standardFontDataUrl: localFonts, worker: true },
     { cMapUrl: cdnCmap, standardFontDataUrl: cdnFonts, worker: false },
+    { cMapUrl: cdnCmap, standardFontDataUrl: cdnFonts, worker: true },
   ]
 
   let lastError: unknown = null
@@ -863,16 +872,21 @@ export async function extractPdfTextItems(
     try {
       const items = await tryLoad(attempt)
       if (items.length > 0) return items
+      lastError = new Error('PDF 未提取到文字')
     } catch (e) {
       lastError = e
     }
   }
 
   if (lastError) {
+    const msg =
+      lastError instanceof Error ? lastError.message : String(lastError)
     throw new Error(
-      lastError instanceof Error
-        ? `PDF 解析失败：${lastError.message}`
-        : 'PDF 解析失败',
+      /toHex|getOrInsertComputed|withResolvers|worker|fetch|network|Failed to fetch/i.test(
+        msg,
+      )
+        ? '当前浏览器解析 PDF 不稳定。请用手机自带浏览器（Safari/Chrome）打开本站再试，不要用微信内打开。'
+        : `PDF 解析失败：${msg}`,
     )
   }
   throw new Error(
@@ -881,7 +895,13 @@ export async function extractPdfTextItems(
 }
 
 export async function parseZfPdfFile(file: File): Promise<TimetablePayload> {
-  const buf = await file.arrayBuffer()
+  const buf = await readBlobBuffer(file)
+  return parseZfPdfBuffer(buf)
+}
+
+export async function parseZfPdfBuffer(
+  buf: ArrayBuffer,
+): Promise<TimetablePayload> {
   const items = await extractPdfTextItems(buf)
   return parseZfPdfItems(items)
 }

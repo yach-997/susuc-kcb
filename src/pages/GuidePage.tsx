@@ -1,7 +1,17 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TermMetaForm } from '../components/TermMetaForm'
-import { parseZfPdfFile } from '../lib/parsePdf'
+import {
+  base64ToArrayBuffer,
+  clearImportDraft,
+  fileToBase64,
+  isInAppBrowser,
+  loadImportDraft,
+  looksLikePdf,
+  readBlobBuffer,
+  saveImportDraft,
+} from '../lib/importDraft'
+import { parseZfPdfBuffer } from '../lib/parsePdf'
 import { buildMockPayload } from '../lib/mockData'
 import { normalizeTermLabel } from '../lib/storage'
 import type { TimetablePayload } from '../types'
@@ -13,13 +23,16 @@ interface Props {
 export function GuidePage({ onImport }: Props) {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
+  const parsingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [okMsg, setOkMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
   const [pending, setPending] = useState<TimetablePayload | null>(null)
+  const [inApp] = useState(() => isInAppBrowser())
 
   const finishImport = (payload: TimetablePayload, tip: string) => {
+    clearImportDraft()
     onImport(payload)
     setPending(null)
     setError(null)
@@ -28,38 +41,93 @@ export function GuidePage({ onImport }: Props) {
   }
 
   /** PDF：先填学期信息再入库 */
-  const askMetaThenImport = (payload: TimetablePayload) => {
+  const askMetaThenImport = (
+    payload: TimetablePayload,
+    name?: string | null,
+  ) => {
     setError(null)
     setOkMsg(null)
     if (payload.termStart && payload.termLabel) {
       finishImport(payload, `已导入 ${payload.courses.length} 门课`)
       return
     }
+    const draftName = name || fileName || loadImportDraft()?.fileName
+    saveImportDraft({
+      pending: payload,
+      pdfBase64: undefined,
+      fileName: draftName,
+    })
     setPending(payload)
   }
 
-  const handlePdf = async (file: File | null) => {
-    if (!file) return
-    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-      setError('请选择 PDF 文件（教务系统里下载的课表）')
-      return
-    }
+  const parseBuffer = async (buf: ArrayBuffer, name: string) => {
+    if (parsingRef.current) return
+    parsingRef.current = true
     setBusy(true)
     setError(null)
     setOkMsg(null)
-    setFileName(file.name)
+    setFileName(name)
     try {
-      const payload = await parseZfPdfFile(file)
-      askMetaThenImport(payload)
+      const payload = await parseZfPdfBuffer(buf)
+      askMetaThenImport(payload, name)
     } catch (e) {
+      // 避免挂载恢复时反复自动重试失败文件
+      saveImportDraft({ pdfBase64: undefined, fileName: name, pending: undefined })
       setOkMsg(null)
       setError(e instanceof Error ? e.message : 'PDF 解析失败')
     } finally {
+      parsingRef.current = false
       setBusy(false)
     }
   }
 
+  const handlePdf = async (file: File | null) => {
+    if (!file) return
+    if (!looksLikePdf(file)) {
+      setError('请选择教务导出的课表 PDF 文件')
+      return
+    }
+    setError(null)
+    setOkMsg(null)
+    setFileName(file.name)
+    setBusy(true)
+    try {
+      // 立刻读入并缓存：手机选文件返回时页面常被挂起/重载
+      const buf = await readBlobBuffer(file)
+      const b64 = await fileToBase64(new Blob([buf], { type: 'application/pdf' }))
+      saveImportDraft({
+        fileName: file.name,
+        pdfBase64: b64,
+        pending: undefined,
+      })
+      parsingRef.current = false
+      await parseBuffer(buf, file.name)
+    } catch (e) {
+      parsingRef.current = false
+      setBusy(false)
+      setOkMsg(null)
+      setError(e instanceof Error ? e.message : '读取 PDF 失败')
+    }
+  }
+
+  // 恢复：已识别待填学期 / 已选文件未解析完
+  useEffect(() => {
+    const draft = loadImportDraft()
+    if (!draft) return
+    if (draft.pending?.courses?.length) {
+      setPending(draft.pending)
+      setFileName(draft.fileName || null)
+      return
+    }
+    if (draft.pdfBase64 && draft.fileName) {
+      setFileName(draft.fileName)
+      void parseBuffer(base64ToArrayBuffer(draft.pdfBase64), draft.fileName)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时恢复
+  }, [])
+
   const handleDemo = () => {
+    clearImportDraft()
     finishImport(buildMockPayload(0), '已载入演示课表')
   }
 
@@ -68,14 +136,18 @@ export function GuidePage({ onImport }: Props) {
       <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
         <h1 className="font-display text-2xl font-bold text-ink">确认学期</h1>
         <p className="mt-1 text-sm text-muted leading-relaxed">
-          课表已识别，请确认学期和第一周日期。
+          已识别 {pending.courses.length}{' '}
+          门课。可先去别处再回来，进度会保留；确认后写入课表。
         </p>
         <div className="mt-5">
           <TermMetaForm
             initialLabel={pending.termLabel}
             initialStart={pending.termStart}
             courseCount={pending.courses.length}
-            onCancel={() => setPending(null)}
+            onCancel={() => {
+              clearImportDraft()
+              setPending(null)
+            }}
             onSubmit={({ termLabel, termStart }) => {
               finishImport(
                 {
@@ -97,8 +169,15 @@ export function GuidePage({ onImport }: Props) {
     <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
       <h1 className="font-display text-2xl font-bold text-ink">导入课表</h1>
       <p className="mt-1 text-sm text-muted leading-relaxed">
-        上传教务导出的课表 PDF（表格式 / 列表式均可）。识别以官方 PDF 为准，导入后请再填学期与第一周日期。
+        上传教务导出的课表 PDF（表格式 / 列表式均可）。识别后请填写学期与第一周日期。
       </p>
+
+      {inApp && (
+        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 leading-relaxed">
+          检测到微信/QQ 内置浏览器，解析 PDF 容易失败。请点右上角「…」用 Safari
+          / 系统浏览器打开本站后再导入。
+        </p>
+      )}
 
       <section className="mt-5 rounded-2xl border border-line bg-white/90 p-4 shadow-sm">
         <div className="text-xs font-semibold text-brand">推荐 · 上传 PDF</div>
@@ -110,7 +189,7 @@ export function GuidePage({ onImport }: Props) {
               1
             </span>
             <span>
-              手机打开教务{' '}
+              用手机浏览器打开教务{' '}
               <span className="font-mono text-[0.7rem] text-ink">61.139.105.138</span>
               ，登录后打开课表
             </span>
@@ -119,41 +198,49 @@ export function GuidePage({ onImport }: Props) {
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[0.7rem] font-bold text-white">
               2
             </span>
-            <span>点页面上的「打印」或「导出 PDF」，保存到手机</span>
+            <span>点「打印」或「导出 PDF」，保存到「文件 / 下载」</span>
           </li>
           <li className="flex gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[0.7rem] font-bold text-white">
               3
             </span>
-            <span>回到本页上传 PDF，并填写学期、第一周日期</span>
+            <span>回到本页点下方按钮，选刚保存的 PDF（不要点开预览后再返回）</span>
           </li>
         </ol>
 
         <input
           ref={fileRef}
+          id="timetable-pdf-input"
           type="file"
-          accept="application/pdf,.pdf"
-          className="hidden"
-          onChange={(e) => handlePdf(e.target.files?.[0] ?? null)}
+          accept="application/pdf,.pdf,application/octet-stream"
+          className="sr-only"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null
+            // 允许重复选同一文件
+            e.target.value = ''
+            void handlePdf(f)
+          }}
         />
 
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-          className="mt-4 w-full rounded-xl bg-brand px-4 py-3.5 text-sm font-semibold text-white shadow-md shadow-brand/20 active:scale-[0.99] transition disabled:opacity-60"
+        <label
+          htmlFor="timetable-pdf-input"
+          aria-disabled={busy}
+          className={`mt-4 flex w-full cursor-pointer items-center justify-center rounded-xl bg-brand px-4 py-3.5 text-sm font-semibold text-white shadow-md shadow-brand/20 active:scale-[0.99] transition ${
+            busy ? 'pointer-events-none opacity-60' : ''
+          }`}
         >
           {busy ? '正在识别课表…' : '选择课表 PDF'}
-        </button>
+        </label>
 
         {fileName && (
           <p className="mt-2 truncate text-center text-[0.75rem] text-muted">
-            已选：{fileName}
+            {busy ? '识别中：' : '已选：'}
+            {fileName}
           </p>
         )}
 
         {error && (
-          <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-expired">
+          <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-expired leading-relaxed">
             {error}
           </p>
         )}
