@@ -8,7 +8,6 @@ import {
 import { PASTE_EXAMPLE, parsePastedTimetable } from '../lib/parsePaste'
 import { parseZfPdfFile } from '../lib/parsePdf'
 import { buildMockPayload } from '../lib/mockData'
-import { forceRefreshApp } from '../lib/forceRefresh'
 import type { TimetablePayload } from '../types'
 
 interface Props {
@@ -98,13 +97,6 @@ export function GuidePage({ onImport }: Props) {
       <p className="mt-1 text-sm text-muted leading-relaxed">
         最简单：教务下载 PDF → 在这里上传。数据只存在你手机里。
       </p>
-      <button
-        type="button"
-        onClick={() => forceRefreshApp()}
-        className="mt-3 w-full rounded-xl border border-brand/25 bg-brand-soft px-3 py-2.5 text-sm font-medium text-brand-dark"
-      >
-        页面不对？点这里强制刷新
-      </button>
 
       <section className="mt-5 rounded-2xl border border-line bg-white/90 p-4 shadow-sm">
         <div className="text-xs font-semibold text-brand">推荐 · 上传 PDF</div>
@@ -159,16 +151,9 @@ export function GuidePage({ onImport }: Props) {
         )}
 
         {error && (
-          <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-expired">
-            <p>{error}</p>
-            <button
-              type="button"
-              className="mt-2 w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-brand border border-brand/20"
-              onClick={() => forceRefreshApp()}
-            >
-              点这里强制刷新后再试
-            </button>
-          </div>
+          <p className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-expired">
+            {error}
+          </p>
         )}
         {okMsg && (
           <p className="mt-2 rounded-xl border border-brand/30 bg-brand-soft px-3 py-2 text-sm text-brand-dark">
