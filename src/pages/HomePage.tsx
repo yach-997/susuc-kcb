@@ -69,7 +69,7 @@ export function HomePage({ data }: Props) {
           </div>
           <h2 className="mt-4 text-lg font-semibold text-ink">还没有课表</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            手机打开教务，复制课表文字，回到这里粘贴即可。数据只保存在你手机里。
+            从教务下载课表 PDF，回来上传即可。数据只保存在你手机里。
           </p>
           <Link
             to="/guide"

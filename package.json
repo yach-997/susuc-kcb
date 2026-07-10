@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "pdfjs-dist": "^6.1.200",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.1"
@@ -21,6 +22,7 @@
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.23.0",
     "typescript": "~5.7.2",
     "vite": "^6.0.6",
     "vite-plugin-pwa": "^0.21.1"
