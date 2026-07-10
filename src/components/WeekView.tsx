@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import type { Course } from '../types'
 import {
   SECTION_TIMES,
@@ -10,11 +11,10 @@ import {
 
 interface Props {
   courses: Course[]
-  teachingWeek: number | null
+  /** 学期推算的当前周，仅作默认选中参考 */
+  suggestedWeek?: number | null
   selectedWeekday: number
   onSelectWeekday: (d: number) => void
-  /** 为 true 时只显示当前教学周有的课；默认 false 显示全部 */
-  onlyCurrentWeek?: boolean
 }
 
 function parityLabel(p: Course['weekParity']) {
@@ -23,22 +23,53 @@ function parityLabel(p: Course['weekParity']) {
   return ''
 }
 
+/** 从课表里推最大周次，至少 16 */
+function detectMaxWeek(courses: Course[]): number {
+  let max = 16
+  for (const c of courses) {
+    const range = c.weeks.match(/(\d+)\s*[-~至]\s*(\d+)/)
+    if (range) {
+      max = Math.max(max, Number(range[1]), Number(range[2]))
+      continue
+    }
+    const single = c.weeks.match(/(\d+)/)
+    if (single) max = Math.max(max, Number(single[1]))
+  }
+  return Math.min(Math.max(max, 1), 30)
+}
+
 export function WeekView({
   courses,
-  teachingWeek,
+  suggestedWeek,
   selectedWeekday,
   onSelectWeekday,
-  onlyCurrentWeek = false,
 }: Props) {
+  const maxWeek = useMemo(() => detectMaxWeek(courses), [courses])
+  const defaultWeek = useMemo(() => {
+    if (suggestedWeek && suggestedWeek >= 1 && suggestedWeek <= maxWeek) {
+      return suggestedWeek
+    }
+    return 1
+  }, [suggestedWeek, maxWeek])
+
+  const [viewWeek, setViewWeek] = useState<number | 'all'>(defaultWeek)
   const sections = maxSection(courses)
-  const today = ((new Date().getDay() + 6) % 7) + 1 // Mon=1
+  const today = ((new Date().getDay() + 6) % 7) + 1
+
+  useEffect(() => {
+    setViewWeek(defaultWeek)
+  }, [defaultWeek, courses.length])
+
+  const filterWeek = viewWeek === 'all' ? null : viewWeek
 
   const dayCourses = courses
     .filter((c) => c.weekday === selectedWeekday)
-    .filter((c) => !onlyCurrentWeek || weekMatches(c, teachingWeek))
-    .sort((a, b) => a.startSection - b.startSection || a.name.localeCompare(b.name, 'zh'))
+    .filter((c) => weekMatches(c, filterWeek))
+    .sort(
+      (a, b) =>
+        a.startSection - b.startSection || a.name.localeCompare(b.name, 'zh'),
+    )
 
-  /** 按起始节次分组，同一节次多门课（不同周次）全部展示 */
   const byStart = new Map<number, Course[]>()
   for (const c of dayCourses) {
     const list = byStart.get(c.startSection) || []
@@ -46,21 +77,52 @@ export function WeekView({
     byStart.set(c.startSection, list)
   }
 
+  const weekOptions: Array<number | 'all'> = [
+    'all',
+    ...Array.from({ length: maxWeek }, (_, i) => i + 1),
+  ]
+
   return (
-    <div className="flex flex-1 flex-col min-h-0 animate-fade-in">
-      <p className="px-4 text-[0.75rem] text-muted">
-        左右点星期查看 · 本学期共 {courses.length} 条课次 · 当天 {dayCourses.length} 条
-      </p>
-      <div className="flex gap-1.5 overflow-x-auto px-3 py-3 scrollbar-none">
+    <div className="flex min-h-0 flex-1 flex-col animate-fade-in">
+      <div className="px-3 pt-1">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="text-[0.75rem] font-medium text-ink">
+            {viewWeek === 'all' ? '查看：全部周次' : `查看：第 ${viewWeek} 周`}
+            {viewWeek !== 'all' && viewWeek % 2 === 1 ? '（单周）' : ''}
+            {viewWeek !== 'all' && viewWeek % 2 === 0 ? '（双周）' : ''}
+          </p>
+          <p className="text-[0.7rem] text-muted">当天 {dayCourses.length} 门</p>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+          {weekOptions.map((w) => {
+            const active = viewWeek === w
+            const label = w === 'all' ? '全部' : `${w}`
+            return (
+              <button
+                key={String(w)}
+                type="button"
+                onClick={() => setViewWeek(w)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                  active
+                    ? 'bg-brand text-white shadow-sm shadow-brand/20'
+                    : 'border border-line bg-white text-ink'
+                }`}
+              >
+                {w === 'all' ? '全部' : `第${label}周`}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto px-3 pb-3 scrollbar-none">
         {WEEKDAY_LABELS.map((label, i) => {
           const day = i + 1
           const active = day === selectedWeekday
           const isToday = day === today
-          const count = courses.filter((c) => {
-            if (c.weekday !== day) return false
-            if (!onlyCurrentWeek) return true
-            return weekMatches(c, teachingWeek)
-          }).length
+          const count = courses.filter(
+            (c) => c.weekday === day && weekMatches(c, filterWeek),
+          ).length
           return (
             <button
               key={day}
@@ -69,15 +131,19 @@ export function WeekView({
               className={`flex min-w-[3.1rem] flex-col items-center rounded-2xl px-2.5 py-2 transition active:scale-95 ${
                 active
                   ? 'bg-brand text-white shadow-md shadow-brand/25'
-                  : 'bg-white/80 text-ink border border-line'
+                  : 'border border-line bg-white/80 text-ink'
               }`}
             >
-              <span className="text-[0.65rem] opacity-80">{isToday ? '今天' : '周'}</span>
+              <span className="text-[0.65rem] opacity-80">
+                {isToday ? '今天' : '周'}
+              </span>
               <span className="mt-0.5 font-display text-base font-bold leading-none">
                 {label}
               </span>
-              <span className={`mt-1 text-[0.6rem] ${active ? 'text-white/90' : 'text-muted'}`}>
-                {count}节
+              <span
+                className={`mt-1 text-[0.6rem] ${active ? 'text-white/90' : 'text-muted'}`}
+              >
+                {count}门
               </span>
             </button>
           )
@@ -85,26 +151,31 @@ export function WeekView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-2">
-        <div className="rounded-2xl border border-line bg-white/90 shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-line bg-white/90 shadow-sm">
           {Array.from({ length: sections }, (_, i) => i + 1).map((sec) => {
             const group = byStart.get(sec)
             const covered = dayCourses.some(
               (c) => c.startSection < sec && c.endSection >= sec,
             )
-            // 被上一门连堂覆盖、且本行没有新开课 → 跳过
             if (covered && !group) return null
 
             const span = group
-              ? Math.max(...group.map((c) => Math.max(1, c.endSection - c.startSection + 1)))
+              ? Math.max(
+                  ...group.map((c) =>
+                    Math.max(1, c.endSection - c.startSection + 1),
+                  ),
+                )
               : 1
 
             return (
               <div
                 key={sec}
                 className="grid grid-cols-[3.2rem_1fr] border-b border-line/70 last:border-b-0"
-                style={{ minHeight: `${Math.max(span, group?.length || 1) * 4.1}rem` }}
+                style={{
+                  minHeight: `${Math.max(span, group?.length || 1) * 4.1}rem`,
+                }}
               >
-                <div className="flex flex-col items-center justify-start border-r border-line/70 bg-surface/60 py-2 px-0.5">
+                <div className="flex flex-col items-center justify-start border-r border-line/70 bg-surface/60 px-0.5 py-2">
                   <span className="text-xs font-semibold text-ink">{sec}</span>
                   <span className="mt-0.5 whitespace-pre-line text-center text-[0.55rem] leading-tight text-muted">
                     {(SECTION_TIME_RANGES[sec] || SECTION_TIMES[sec] || '').replace(
@@ -130,7 +201,7 @@ export function WeekView({
                           minHeight: `${Math.max(1, course.endSection - course.startSection + 1) * 3.2}rem`,
                         }}
                       >
-                        <div className="font-semibold text-[0.78rem] leading-snug">
+                        <div className="text-[0.78rem] font-semibold leading-snug">
                           {course.name}
                         </div>
                         <div className="mt-1 opacity-95">
@@ -165,20 +236,22 @@ export function WeekView({
 
         {dayCourses.length === 0 && (
           <p className="py-10 text-center text-sm text-muted">
-            这一天没有课，点上面其他星期看看
+            {viewWeek === 'all'
+              ? '这一天没有课，点上面其他星期看看'
+              : `第 ${viewWeek} 周的这一天没有课，换一周或换一天试试`}
           </p>
         )}
 
         <div className="mt-3 flex flex-wrap gap-3 px-1 text-[0.65rem] text-muted">
+          <span>上面可选「第几周」查看当周课表</span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-3 w-5 rounded course-chip odd-week bg-brand" />
-            单周斜纹
+            <span className="course-chip odd-week inline-block h-3 w-5 rounded bg-brand" />
+            单周
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-3 w-5 rounded course-chip even-week bg-brand" />
-            双周斜纹
+            <span className="course-chip even-week inline-block h-3 w-5 rounded bg-brand" />
+            双周
           </span>
-          <span>同一格多门课 = 不同周次</span>
         </div>
       </div>
     </div>

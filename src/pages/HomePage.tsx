@@ -48,7 +48,7 @@ export function HomePage({ data }: Props) {
         </h1>
         <p className="mt-1 text-sm text-muted">
           {data
-            ? `共 ${data.courses.length} 条课次${teachingWeek ? ` · 第 ${teachingWeek} 周` : ''} · ${data.school.replace(/^四川轻化工大学\s*[·•]?\s*/, '') || data.school}`
+            ? `共 ${data.courses.length} 条课次 · 可切换周数查看`
             : '本地课表 · 零后端'}
         </p>
       </header>
@@ -58,7 +58,7 @@ export function HomePage({ data }: Props) {
       {data && data.courses.length > 0 ? (
         <WeekView
           courses={data.courses}
-          teachingWeek={teachingWeek}
+          suggestedWeek={teachingWeek}
           selectedWeekday={weekday}
           onSelectWeekday={setWeekday}
         />
