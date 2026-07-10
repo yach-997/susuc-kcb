@@ -32,7 +32,7 @@ jobs:
 
       - name: Build
         env:
-          # 相对路径：GitHub Pages 与 jsDelivr 镜像都能用
+          # 相对路径：GitHub Pages 与 githack 镜像都能用
           VITE_BASE: ./
         run: npm run build
 
