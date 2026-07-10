@@ -257,7 +257,7 @@ export function GuidePage({ onImport }: Props) {
               type="button"
               onClick={() => {
                 if (confirm('清理缓存并刷新页面？课表数据会保留。')) {
-                  hardRefreshApp({ clearTimetable: false })
+                  void hardRefreshApp({ clearTimetable: false })
                 }
               }}
               className="mt-2 w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-ink border border-red-200"

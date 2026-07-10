@@ -40,8 +40,11 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       : '将清理应用缓存并重新加载（课表数据保留），确定吗？'
     if (!confirm(tip)) return
     setRefreshing(true)
-    setMsg('正在跳转清理页…')
-    hardRefreshApp({ clearTimetable: alsoClearTimetable })
+    setMsg('正在清理缓存…')
+    void hardRefreshApp({ clearTimetable: alsoClearTimetable }).catch(() => {
+      setRefreshing(false)
+      setMsg('自动清理失败，请按下方说明手动清除网站数据')
+    })
   }
 
   return (
@@ -66,7 +69,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
           onClick={() => handleHardRefresh(false)}
           className="mt-3 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {refreshing ? '正在跳转…' : '清理缓存并刷新'}
+          {refreshing ? '正在清理…' : '清理缓存并刷新'}
         </button>
         <button
           type="button"
@@ -76,15 +79,10 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         >
           清理缓存 + 清除课表并刷新
         </button>
-        <p className="mt-3 break-all text-[0.7rem] text-muted leading-relaxed">
-          若按钮无效，请用系统浏览器打开：
-          <br />
-          <a
-            className="text-brand underline"
-            href={`${window.location.origin}${import.meta.env.BASE_URL || '/'}clear.html`}
-          >
-            {`${window.location.origin}${import.meta.env.BASE_URL || '/'}clear.html`}
-          </a>
+        <p className="mt-3 text-[0.75rem] text-muted leading-relaxed">
+          若仍停在旧版：地址栏左侧锁头 → 网站设置 →{' '}
+          <b className="text-ink">清除并重置</b>
+          ，并删掉桌面旧图标。或先用无痕打开本站。
         </p>
       </section>
 
@@ -189,7 +187,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         <h2 className="font-semibold text-ink">关于</h2>
         <p className="mt-2">四川轻化工大学课表助手 · 纯前端 PWA</p>
         <p className="mt-1">正方教务：61.139.105.138</p>
-        <p className="mt-1">版本 1.1.2</p>
+        <p className="mt-1">版本 1.1.3</p>
       </section>
     </div>
   )
