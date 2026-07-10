@@ -12,6 +12,7 @@ import {
   saveImportDraft,
 } from '../lib/importDraft'
 import { parseZfPdfBuffer } from '../lib/parsePdf'
+import { prefetchCriticalCmaps } from '../lib/pdfAssets'
 import { buildMockPayload } from '../lib/mockData'
 import { normalizeTermLabel } from '../lib/storage'
 import type { TimetablePayload } from '../types'
@@ -112,6 +113,7 @@ export function GuidePage({ onImport }: Props) {
 
   // 恢复：已识别待填学期 / 已选文件未解析完
   useEffect(() => {
+    prefetchCriticalCmaps()
     const draft = loadImportDraft()
     if (!draft) return
     if (draft.pending?.courses?.length) {
@@ -173,14 +175,13 @@ export function GuidePage({ onImport }: Props) {
       </p>
 
       {inApp && (
-        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 leading-relaxed">
-          检测到微信/QQ 内置浏览器，解析 PDF 容易失败。请点右上角「…」用 Safari
-          / 系统浏览器打开本站后再导入。
+        <p className="mt-3 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-muted leading-relaxed">
+          当前是微信/QQ 内打开，部分机型解析会不稳定。若导入失败，可在系统浏览器中打开本站重试。
         </p>
       )}
 
       <section className="mt-5 rounded-2xl border border-line bg-white/90 p-4 shadow-sm">
-        <div className="text-xs font-semibold text-brand">推荐 · 上传 PDF</div>
+        <div className="text-xs font-semibold text-brand">上传 PDF</div>
         <h2 className="mt-1 font-semibold text-ink">导入教务课表文件</h2>
 
         <ol className="mt-3 space-y-2 text-sm text-muted leading-relaxed">
@@ -189,22 +190,22 @@ export function GuidePage({ onImport }: Props) {
               1
             </span>
             <span>
-              用手机浏览器打开教务{' '}
+              打开教务{' '}
               <span className="font-mono text-[0.7rem] text-ink">61.139.105.138</span>
-              ，登录后打开课表
+              ，登录后进入课表
             </span>
           </li>
           <li className="flex gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[0.7rem] font-bold text-white">
               2
             </span>
-            <span>点「打印」或「导出 PDF」，保存到「文件 / 下载」</span>
+            <span>点「打印」或「导出 PDF」，保存到手机</span>
           </li>
           <li className="flex gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[0.7rem] font-bold text-white">
               3
             </span>
-            <span>回到本页点下方按钮，选刚保存的 PDF（不要点开预览后再返回）</span>
+            <span>点下方按钮选择该 PDF（直接选中即可，无需先预览）</span>
           </li>
         </ol>
 

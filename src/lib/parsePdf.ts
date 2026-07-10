@@ -2,6 +2,13 @@ import type { Course, TimetablePayload, WeekParity } from '../types'
 import { parseWeekParity, uid } from './storage'
 import { installPdfCompat } from './pdfCompat'
 import { readBlobBuffer } from './importDraft'
+import {
+  assetRoot,
+  createMultiBinaryDataFactory,
+  looksLikeTimetableText,
+} from './pdfAssets'
+// Vite 打包 worker，路径随 base 自动正确，比 public 下手写路径更稳
+import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 
 export interface PdfTextItem {
   str: string
@@ -802,43 +809,39 @@ function parseGridStyleCourses(items: PdfTextItem[]): Course[] {
   return courses
 }
 
-/** 在浏览器中用 pdfjs 提取文本项 */
+/** 在浏览器中用 pdfjs 提取文本项（针对各品牌手机浏览器加固） */
 export async function extractPdfTextItems(
   data: ArrayBuffer,
 ): Promise<PdfTextItem[]> {
   installPdfCompat()
-  // legacy 构建对中文 CMap / 旧手机更稳
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const origin = window.location.origin
-  const base = import.meta.env.BASE_URL || '/'
-  const root = new URL(base, origin).href.replace(/\/?$/, '/')
-  const workerSrc = new URL('pdfjs/pdf.worker.min.mjs', root).href
-  const localCmap = new URL('pdfjs/cmaps/', root).href
-  const localFonts = new URL('pdfjs/standard_fonts/', root).href
-  const cdnCmap = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.1.200/cmaps/'
-  const cdnFonts =
-    'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.1.200/standard_fonts/'
+
+  const root = assetRoot()
+  const publicWorker = new URL('pdfjs/pdf.worker.min.mjs', root).href
+  const workerCandidates = [pdfWorkerUrl, publicWorker]
 
   // 拷贝一份，避免部分手机上底层转移 ArrayBuffer 后二次尝试失败
   const bytes = new Uint8Array(data.byteLength)
   bytes.set(new Uint8Array(data))
 
-  const tryLoad = async (opts: {
-    cMapUrl: string
-    standardFontDataUrl: string
-    worker: boolean
-  }) => {
-    pdfjs.GlobalWorkerOptions.workerSrc = opts.worker ? workerSrc : ''
+  const BinaryDataFactory = createMultiBinaryDataFactory()
+  const localCmap = new URL('pdfjs/cmaps/', root).href
+  const localFonts = new URL('pdfjs/standard_fonts/', root).href
+
+  const tryLoad = async (workerSrc: string) => {
+    pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
     const loadingTask = pdfjs.getDocument({
       data: bytes.slice(0),
       useSystemFonts: true,
-      cMapUrl: opts.cMapUrl,
+      cMapUrl: localCmap,
       cMapPacked: true,
-      standardFontDataUrl: opts.standardFontDataUrl,
-      // 小文件整包加载，减少手机流式/worker 兼容问题
+      standardFontDataUrl: localFonts,
+      BinaryDataFactory,
+      // 走主线程 BinaryDataFactory，便于多源回退（各品牌手机更稳）
+      useWorkerFetch: false,
       disableStream: true,
       disableAutoFetch: true,
-      useWorkerFetch: false,
+      useWasm: false,
     })
     const doc = await loadingTask.promise
     const items: PdfTextItem[] = []
@@ -859,33 +862,31 @@ export async function extractPdfTextItems(
     return items
   }
 
-  const attempts = [
-    // 手机优先：本地 CMap + 主线程（不依赖 worker 跨域/缓存）
-    { cMapUrl: localCmap, standardFontDataUrl: localFonts, worker: false },
-    { cMapUrl: localCmap, standardFontDataUrl: localFonts, worker: true },
-    { cMapUrl: cdnCmap, standardFontDataUrl: cdnFonts, worker: false },
-    { cMapUrl: cdnCmap, standardFontDataUrl: cdnFonts, worker: true },
-  ]
-
   let lastError: unknown = null
-  for (const attempt of attempts) {
+  let bestItems: PdfTextItem[] = []
+
+  for (const workerSrc of workerCandidates) {
     try {
-      const items = await tryLoad(attempt)
-      if (items.length > 0) return items
-      lastError = new Error('PDF 未提取到文字')
+      const items = await tryLoad(workerSrc)
+      if (looksLikeTimetableText(items)) return items
+      if (items.length > bestItems.length) bestItems = items
+      lastError = new Error('提取到的文字不像课表，继续尝试…')
     } catch (e) {
       lastError = e
     }
   }
 
+  // 退而求其次：有文字就交给上层解析（可能仍能识别）
+  if (bestItems.length > 0) return bestItems
+
   if (lastError) {
     const msg =
       lastError instanceof Error ? lastError.message : String(lastError)
     throw new Error(
-      /toHex|getOrInsertComputed|withResolvers|worker|fetch|network|Failed to fetch/i.test(
+      /toHex|toBase64|getOrInsert|withResolvers|worker|fetch|network|Failed to fetch|CMap|cmap/i.test(
         msg,
       )
-        ? '当前浏览器解析 PDF 不稳定。请用手机自带浏览器（Safari/Chrome）打开本站再试，不要用微信内打开。'
+        ? '手机解析 PDF 失败，请确认上传的是教务「导出/打印」的课表文件后重试。若仍失败，可换 Chrome / Safari 再试一次。'
         : `PDF 解析失败：${msg}`,
     )
   }
