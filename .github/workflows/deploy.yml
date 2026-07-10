@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -32,14 +32,23 @@ jobs:
 
       - name: Build
         env:
-          # 仓库名与 Pages 路径一致；若用 username.github.io 请改为 /
-          VITE_BASE: /${{ github.event.repository.name }}/
+          # 相对路径：GitHub Pages 与 jsDelivr 镜像都能用
+          VITE_BASE: ./
         run: npm run build
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
+      - name: Publish CDN mirror branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: cdn
+          force_orphan: true
+          commit_message: 'cdn: publish static build'
 
   deploy:
     needs: build

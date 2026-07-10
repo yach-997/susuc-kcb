@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// 本地默认 '/'；GitHub Actions 会注入 VITE_BASE=/仓库名/
-const base = process.env.VITE_BASE || '/'
+// 本地默认 './'；CI 也可注入 VITE_BASE
+const base = process.env.VITE_BASE || './'
 
 export default defineConfig({
   base,

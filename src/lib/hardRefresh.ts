@@ -1,18 +1,11 @@
 /**
  * 清理 SW / Cache 后刷新。
- *
- * 注意：不要跳 clear.html（旧 SW 会劫持），也不要走 blob: 中转
- *（华为等国产浏览器常把 blob→https 判成「网站无法打开」）。
+ * 留在当前域名，避免跳 clear.html / blob / index.html 导致国产浏览器打不开。
  */
 export async function hardRefreshApp(options?: {
   clearTimetable?: boolean
 }): Promise<void> {
   const clearData = Boolean(options?.clearTimetable)
-  const base = import.meta.env.BASE_URL || '/'
-  const home =
-    `${window.location.origin}${base}?_v=${Date.now()}` +
-    (clearData ? '&cleared=1' : '') +
-    '#/'
 
   try {
     try {
@@ -47,14 +40,23 @@ export async function hardRefreshApp(options?: {
     /* 仍继续跳转 */
   }
 
-  window.location.replace(home)
+  const next = new URL(window.location.href)
+  next.pathname = next.pathname.replace(/index\.html$/i, '')
+  if (!next.pathname.endsWith('/')) next.pathname += '/'
+  next.search = ''
+  next.searchParams.set('_v', String(Date.now()))
+  if (clearData) next.searchParams.set('cleared', '1')
+  next.hash = '#/'
+  window.location.replace(next.toString())
 }
 
 export function clearPageUrl(clearTimetable = false): string {
-  const base = import.meta.env.BASE_URL || '/'
-  const url = new URL(`${window.location.origin}${base}`)
-  url.searchParams.set('_v', String(Date.now()))
-  if (clearTimetable) url.searchParams.set('cleared', '1')
-  url.hash = '/'
-  return url.href
+  const next = new URL(window.location.href)
+  next.pathname = next.pathname.replace(/index\.html$/i, '')
+  if (!next.pathname.endsWith('/')) next.pathname += '/'
+  next.search = ''
+  next.searchParams.set('_v', String(Date.now()))
+  if (clearTimetable) next.searchParams.set('cleared', '1')
+  next.hash = '#/'
+  return next.href
 }

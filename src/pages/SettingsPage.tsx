@@ -61,14 +61,22 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
         <h2 className="font-semibold text-ink">更新 / 修复识别</h2>
         <p className="mt-1 text-sm text-muted leading-relaxed">
-          正式地址：
+          手机打不开 GitHub 时，请用镜像（推荐）：
+        </p>
+        <a
+          className="mt-2 block break-all rounded-xl bg-white px-3 py-2 text-sm font-medium text-brand underline border border-brand/20"
+          href="https://testingcf.jsdelivr.net/gh/yach-997/susuc-kcb@cdn/index.html"
+        >
+          https://testingcf.jsdelivr.net/gh/yach-997/susuc-kcb@cdn/index.html
+        </a>
+        <p className="mt-2 text-[0.75rem] text-muted leading-relaxed">
+          备用：
           <a
-            className="break-all text-brand underline"
+            className="text-brand underline break-all"
             href="https://yach-997.github.io/susuc-kcb/"
           >
             https://yach-997.github.io/susuc-kcb/
           </a>
-          。请不要用旧的 cursor-kcb 链接。
         </p>
         <button
           type="button"
@@ -86,10 +94,6 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         >
           清理缓存 + 清除课表并刷新
         </button>
-        <p className="mt-3 text-[0.75rem] text-muted leading-relaxed">
-          若点完出现「网站无法打开」：直接重新输入上面的正式地址（不要带
-          index.html），或换 Chrome 打开。
-        </p>
       </section>
 
       <section className="mt-4 rounded-2xl border border-line bg-white/90 p-4 shadow-sm">
@@ -193,9 +197,9 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         <h2 className="font-semibold text-ink">关于</h2>
         <p className="mt-2">四川轻化工大学课表助手 · 纯前端 PWA</p>
         <p className="mt-1">正方教务：61.139.105.138</p>
-        <p className="mt-1">版本 1.1.5</p>
+        <p className="mt-1">版本 1.1.6</p>
         <p className="mt-2 break-all text-xs text-muted">
-          正式地址：https://yach-997.github.io/susuc-kcb/
+          镜像：https://testingcf.jsdelivr.net/gh/yach-997/susuc-kcb@cdn/index.html
         </p>
       </section>
     </div>
