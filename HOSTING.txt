@@ -1,12 +1,16 @@
-# 同学只需收藏这一个（配置好 SHIP_API_KEY 后永久有效、自动更新）
+# 目标固定地址（需 API Key 绑定成功后才可用；目前仍是 404）
 https://susuc-kcb.shipstatic.com/
 
+# 当前能打开的地址（你已认领，永久有效；更新需重新绑定域名后才会自动刷新）
+https://liminal-dust-ki8z8au.shipstatic.com/
+
 # 一次性配置（只需做一次）：
-# 1. 打开 https://my.shipstatic.com → 账户/设置 → 创建 API Key
+# 1. 打开 https://my.shipstatic.com → 账户/设置 → 复制 API Key
 # 2. 打开 https://github.com/yach-997/susuc-kcb/settings/secrets/actions
-# 3. 新建 Secret：名字填 SHIP_API_KEY，值粘贴刚才的 Key
-# 4. 告诉我「配好了」，或自己在 Actions 里点一次 Deploy
-# 之后每次我推送更新，同学刷新原链接即可，不用换地址、不用通知。
+# 3. 新建/更新 Secret：名字 SHIP_API_KEY，值粘贴 Key
+# 4. 在 ShipStatic 控制台「域名」里创建 susuc-kcb，并关联到最新部署
+#    或把 API Key 发给我，我帮你在命令行绑定
+# 绑定成功后同学只收藏 https://susuc-kcb.shipstatic.com/ 即可。
 
 # 备用（海外，国内可能慢）：
 https://susuc-kcb.vercel.app/

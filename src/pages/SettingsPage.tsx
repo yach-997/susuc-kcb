@@ -61,16 +61,16 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
         <h2 className="font-semibold text-ink">更新 / 修复识别</h2>
         <p className="mt-1 text-sm text-muted leading-relaxed">
-          同学请收藏这一个固定地址（更新后刷新即可，不用换链接）：
+          同学请先用这个能打开的地址（已认领，永久有效）：
         </p>
         <a
           className="mt-2 block break-all rounded-xl bg-white px-3 py-2 text-sm font-medium text-brand underline border border-brand/20"
-          href="https://susuc-kcb.shipstatic.com/"
+          href="https://liminal-dust-ki8z8au.shipstatic.com/"
         >
-          https://susuc-kcb.shipstatic.com/
+          https://liminal-dust-ki8z8au.shipstatic.com/
         </a>
         <p className="mt-2 text-[0.75rem] text-muted leading-relaxed">
-          临时调试链接会变；正式分享请用上面的固定域名。
+          短域名 susuc-kcb.shipstatic.com 绑定成功后会改回短链；在此之前请用上面这个。
         </p>
         <button
           type="button"
