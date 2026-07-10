@@ -10,19 +10,31 @@ import {
 interface Props {
   courses: Course[]
   week: number | null
+  /** 学期尚未开始 */
+  beforeTerm?: boolean
   onCourseClick?: (course: Course) => void
+  onShowWeek?: () => void
 }
 
-export function TodayView({ courses, week, onCourseClick }: Props) {
+export function TodayView({
+  courses,
+  week,
+  beforeTerm,
+  onCourseClick,
+  onShowWeek,
+}: Props) {
   const weekday = todayWeekday()
-  const list = courses
-    .filter(
-      (c) =>
-        c.weekday === weekday &&
-        weekMatches(c, week) &&
-        c.startSection >= 1,
-    )
-    .sort((a, b) => a.startSection - b.startSection)
+  const list =
+    beforeTerm || week == null
+      ? []
+      : courses
+          .filter(
+            (c) =>
+              c.weekday === weekday &&
+              weekMatches(c, week) &&
+              c.startSection >= 1,
+          )
+          .sort((a, b) => a.startSection - b.startSection)
 
   const now = new Date()
   const dateText = `${now.getMonth() + 1}月${now.getDate()}日 周${WEEKDAY_LABELS[weekday - 1]}`
@@ -34,13 +46,38 @@ export function TodayView({ courses, week, onCourseClick }: Props) {
           <h2 className="text-base font-bold text-ink">今日课程</h2>
           <p className="text-[0.7rem] text-muted">
             {dateText}
-            {week != null ? ` · 第 ${week} 周` : ''}
+            {beforeTerm
+              ? ' · 学期未开始'
+              : week != null
+                ? ` · 第 ${week} 周`
+                : ''}
           </p>
         </div>
         <span className="text-[0.7rem] text-muted">{list.length} 节</span>
       </div>
 
-      {list.length === 0 ? (
+      {beforeTerm ? (
+        <div className="rounded-2xl border border-dashed border-line bg-white/70 px-4 py-8 text-center">
+          <p className="text-sm font-medium text-ink">学期还没开始</p>
+          <p className="mt-1 text-xs text-muted leading-relaxed">
+            课表已导入（共 {courses.length} 条）。到了你填的第一周之后，「今日」会按日期自动显示。
+          </p>
+          {onShowWeek && (
+            <button
+              type="button"
+              onClick={onShowWeek}
+              className="mt-4 rounded-xl bg-brand-soft px-4 py-2.5 text-sm font-semibold text-brand-dark"
+            >
+              先预览整周课表
+            </button>
+          )}
+        </div>
+      ) : week == null ? (
+        <div className="rounded-2xl border border-dashed border-line bg-white/70 px-4 py-8 text-center">
+          <p className="text-sm font-medium text-ink">还不能算「今天上哪节」</p>
+          <p className="mt-1 text-xs text-muted">请在设置里确认学期和第一周日期</p>
+        </div>
+      ) : list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line bg-white/70 px-4 py-8 text-center">
           <p className="text-sm font-medium text-ink">今天没有课</p>
           <p className="mt-1 text-xs text-muted">有补课可点右上角「加课」</p>

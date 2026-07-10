@@ -191,7 +191,7 @@ export function mondayOfWeek(termStart: string, week: number): Date | null {
   return d
 }
 
-/** 从学期第一周周一推算当前教学周 */
+/** 从学期第一周周一推算当前教学周；未开学或已超过最大周返回 null */
 export function currentTeachingWeek(
   termStart?: string,
   maxWeek = 30,
@@ -203,9 +203,21 @@ export function currentTeachingWeek(
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const diff = today.getTime() - termMonday.getTime()
-  if (diff < 0) return 1
+  if (diff < 0) return null
   const week = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1
-  return Math.min(Math.max(week, 1), maxWeek)
+  if (week > maxWeek) return null
+  return Math.max(week, 1)
+}
+
+/** 是否还没到第一周（今天早于学期第一周周一） */
+export function isBeforeTermStart(termStart?: string): boolean {
+  if (!termStart) return false
+  const mondayIso = toMondayIso(termStart)
+  if (!mondayIso) return false
+  const termMonday = new Date(mondayIso + 'T00:00:00')
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return today.getTime() < termMonday.getTime()
 }
 
 export function weekMatches(course: Course, week: number | null): boolean {

@@ -10,6 +10,7 @@ import { WeekView } from '../components/WeekView'
 import {
   currentTeachingWeek,
   getFreshness,
+  isBeforeTermStart,
   normalizeTermLabel,
   saveTimetable,
 } from '../lib/storage'
@@ -26,15 +27,20 @@ export function HomePage({ data, onUpdate }: Props) {
   const navigate = useNavigate()
   const freshness = useMemo(() => getFreshness(data?.updatedAt), [data?.updatedAt])
   const needTermMeta = !!(data && data.courses.length > 0 && !data.termStart)
+  const beforeTerm = !!(data?.termStart && isBeforeTermStart(data.termStart))
   const teachingWeek = useMemo(() => {
     if (!data?.termStart) return null
     let max = 16
     for (const c of data.courses) {
       const range = c.weeks.match(/(\d+)\s*[-~至]\s*(\d+)/)
       if (range) max = Math.max(max, Number(range[1]), Number(range[2]))
+      const single = c.weeks.match(/(\d+)/)
+      if (single) max = Math.max(max, Number(single[1]))
     }
     return currentTeachingWeek(data.termStart, Math.min(max, 30))
   }, [data])
+  /** 本周视图：未开学时默认预览第 1 周 */
+  const weekViewWeek = teachingWeek ?? (beforeTerm ? 1 : null)
   const [showStale, setShowStale] = useState(false)
   const [tab, setTab] = useState<'today' | 'week'>('today')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -112,8 +118,9 @@ export function HomePage({ data, onUpdate }: Props) {
     if (!data) return '本地课表 · 零后端'
     const parts: string[] = []
     if (data.termLabel) parts.push(data.termLabel)
-    if (teachingWeek != null) parts.push(`第 ${teachingWeek} 周`)
-    if (!parts.length) parts.push(`共 ${data.courses.length} 条课次`)
+    if (beforeTerm) parts.push('未开学')
+    else if (teachingWeek != null) parts.push(`第 ${teachingWeek} 周`)
+    parts.push(`${data.courses.length} 条课次`)
     return parts.join(' · ')
   })()
 
@@ -191,7 +198,9 @@ export function HomePage({ data, onUpdate }: Props) {
               <TodayView
                 courses={data.courses}
                 week={teachingWeek}
+                beforeTerm={beforeTerm}
                 onCourseClick={openEditManual}
+                onShowWeek={() => setTab('week')}
               />
               <p className="px-4 pb-3 text-center text-[0.7rem] text-muted">
                 补课/调课点右上角「加课」· 自加的课可点开修改
@@ -200,7 +209,7 @@ export function HomePage({ data, onUpdate }: Props) {
           ) : (
             <WeekView
               courses={data.courses}
-              suggestedWeek={teachingWeek}
+              suggestedWeek={weekViewWeek}
               termStart={data.termStart}
               onCourseClick={openEditManual}
             />
