@@ -65,9 +65,9 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         </p>
         <a
           className="mt-2 block break-all rounded-xl bg-white px-3 py-2 text-sm font-medium text-brand underline border border-brand/20"
-          href="https://spectral-dust-f4sucj4.shipstatic.com/"
+          href="https://liminal-dust-ki8z8au.shipstatic.com/"
         >
-          https://spectral-dust-f4sucj4.shipstatic.com/
+          https://liminal-dust-ki8z8au.shipstatic.com/
         </a>
         <p className="mt-2 text-[0.75rem] text-muted leading-relaxed">
           旧的 github.io / jsDelivr / githack 链接请不要再用。
@@ -193,7 +193,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         <p className="mt-1">正方教务：61.139.105.138</p>
         <p className="mt-1">版本 1.1.9</p>
         <p className="mt-2 break-all text-xs text-muted">
-          https://spectral-dust-f4sucj4.shipstatic.com/
+          https://liminal-dust-ki8z8au.shipstatic.com/
         </p>
       </section>
     </div>

@@ -1,6 +1,4 @@
-# 当前正式访问地址（ShipStatic 边缘托管）
-# 手机请打开：
-https://spectral-dust-f4sucj4.shipstatic.com/
+# 当前正式访问地址（ShipStatic 边缘托管，手机请用这个）
+https://liminal-dust-ki8z8au.shipstatic.com/
 
-# 说明：匿名部署默认 3 天过期。要永久保留，请在电脑浏览器打开认领链接（见对话记录），
-# 认领后把 API Key 配进 GitHub Secrets，即可每次 push 自动更新同一域名。
+# 默认 3 天后过期。要永久保留：用电脑打开认领链接（见聊天记录里的 claim 链接）。
