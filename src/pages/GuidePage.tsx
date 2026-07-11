@@ -202,11 +202,11 @@ export function GuidePage({ onImport }: Props) {
                   打开{' '}
                   <a
                     className="break-all font-medium text-brand underline"
-                    href="https://jwgl.suse.edu.cn/"
+                    href="https://jwgl.suse.edu.cn"
                     target="_blank"
                     rel="noreferrer"
                   >
-                    https://jwgl.suse.edu.cn/
+                    https://jwgl.suse.edu.cn
                   </a>
                   {' '}登录，再进「个人课表查询」
                 </p>

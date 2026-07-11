@@ -194,14 +194,14 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
           正方教务：{' '}
           <a
             className="break-all text-brand underline"
-            href="https://jwgl.suse.edu.cn/"
+            href="https://jwgl.suse.edu.cn"
             target="_blank"
             rel="noreferrer"
           >
-            https://jwgl.suse.edu.cn/
+            https://jwgl.suse.edu.cn
           </a>
         </p>
-        <p className="mt-1">版本 1.2.5</p>
+        <p className="mt-1">版本 1.2.6</p>
         <p className="mt-2 break-all text-xs text-muted">
           https://susuc-kcb.shipstatic.com/
         </p>
