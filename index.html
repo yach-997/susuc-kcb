@@ -158,12 +158,11 @@
 
       /**
        * 微信 / QQ / TIM 内打开：全屏拦住，引导去手机浏览器。
-       * 安卓点按钮用 Intent 跳转（需用户点击，自动跳常被拦截）。
-       * iOS 无法自动开 Safari，只能右上角打开或复制链接。
+       * 微信/QQ 会拦截 intent://；华为 Mate 等通常无 Chrome。
+       * 可靠做法：右上角 ··· →「在浏览器打开」；复制链接兜底。
        */
       ;(function () {
         var ua = navigator.userAgent || ''
-        // 覆盖常见内置浏览器 UA（含 TIM、部分 QQ 变体）
         var inApp =
           /MicroMessenger/i.test(ua) ||
           (/QQ\//i.test(ua) && !/QQBrowser/i.test(ua)) ||
@@ -175,12 +174,14 @@
           document.body.classList.add('in-app-lock')
         } catch (e) {}
 
-        var android = /Android/i.test(ua)
+        var android =
+          /Android/i.test(ua) ||
+          /HarmonyOS|OpenHarmony|HUAWEI|HMSCore/i.test(ua)
         var ios = /iPhone|iPad|iPod/i.test(ua)
         var wechat = /MicroMessenger/i.test(ua)
+        var huawei = /HUAWEI|HarmonyOS|OpenHarmony|HMSCore|Honor/i.test(ua)
 
         function currentUrl() {
-          // 给外跳用干净地址，避免带一堆调试参数
           try {
             var u = new URL(location.href)
             ;['_v', '_refresh', 'cleared'].forEach(function (k) {
@@ -192,44 +193,52 @@
           }
         }
 
-        function intentUrl(url) {
+        function buildIntent(url, pkg) {
           try {
             var u = new URL(url)
             var rest = u.host + u.pathname + u.search + u.hash
             var scheme = (u.protocol || 'https:').replace(':', '') || 'https'
-            // 优先拉起 Chrome；没有则由系统选择浏览器
-            return (
+            var s =
               'intent://' +
               rest +
               '#Intent;scheme=' +
               scheme +
-              ';package=com.android.chrome;' +
-              'S.browser_fallback_url=' +
-              encodeURIComponent(url) +
-              ';end'
-            )
+              ';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE'
+            if (pkg) s += ';package=' + pkg
+            s += ';end'
+            return s
           } catch (e) {
             return url
           }
         }
 
+        /** 华为优先本机浏览器；勿先绑 Chrome（Mate 没有会直接失败） */
         function jumpAndroid() {
           var url = currentUrl()
-          // 先试 Chrome Intent，再试通用 VIEW
-          location.href = intentUrl(url)
-          setTimeout(function () {
+          var pkgs = huawei
+            ? [
+                'com.huawei.browser',
+                'com.huawei.browserex',
+                'com.android.browser',
+                'com.android.chrome',
+                '',
+              ]
+            : [
+                '',
+                'com.android.chrome',
+                'com.huawei.browser',
+                'com.android.browser',
+              ]
+          var i = 0
+          function next() {
+            if (i >= pkgs.length) return
+            var pkg = pkgs[i++]
             try {
-              var u = new URL(url)
-              var rest = u.host + u.pathname + u.search + u.hash
-              var scheme = (u.protocol || 'https:').replace(':', '') || 'https'
-              location.href =
-                'intent://' +
-                rest +
-                '#Intent;scheme=' +
-                scheme +
-                ';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end'
+              location.href = buildIntent(url, pkg)
             } catch (e) {}
-          }, 800)
+            setTimeout(next, 700)
+          }
+          next()
         }
 
         function copyLink(btn) {
@@ -265,32 +274,35 @@
           if (title) title.textContent = '请用手机浏览器打开'
           if (desc) {
             desc.textContent = wechat
-              ? '当前在微信里打开。课表 PDF 在这里经常选不到，请先到手机浏览器打开本站。'
-              : '当前在 QQ 里打开。课表 PDF 在这里经常选不到，请先到手机浏览器打开本站。'
+              ? '当前在微信里。华为等手机无法一键跳出，请按下面步骤用系统浏览器打开。'
+              : '当前在 QQ 里。华为等手机无法一键跳出，请按下面步骤用系统浏览器打开。'
           }
 
+          // 安卓微信/QQ 与 iOS 一样：主路径是右上角「在浏览器打开」
+          if (arrow) arrow.classList.add('show')
+
           if (android) {
-            if (arrow) arrow.classList.remove('show')
             if (steps) {
-              steps.innerHTML =
-                '<li>点下方绿色按钮</li><li>选择 Chrome / 手机浏览器打开</li><li>再回来导入课表 PDF</li>'
+              steps.innerHTML = wechat
+                ? '<li>点右上角 <b>···</b></li><li>选「在浏览器打开」或「浏览器」</li><li>若没有该项：点下方复制链接，到华为浏览器粘贴打开</li>'
+                : '<li>点右上角 <b>···</b></li><li>选「在浏览器打开」</li><li>若没有该项：点下方复制链接，到华为浏览器粘贴打开</li>'
             }
             if (btn) {
               btn.style.display = 'block'
-              btn.textContent = '用手机浏览器打开'
+              btn.textContent = '复制链接'
               btn.onclick = function () {
-                jumpAndroid()
+                copyLink(btn)
               }
             }
             if (btn2) {
               btn2.style.display = 'block'
-              btn2.textContent = '复制链接手动打开'
+              btn2.textContent = '试试自动跳转（多数机型会失败）'
               btn2.onclick = function () {
-                copyLink(btn2)
+                jumpAndroid()
+                btn2.textContent = '若没跳出，请用右上角 ··· 打开'
               }
             }
           } else if (ios) {
-            if (arrow) arrow.classList.add('show')
             if (steps) {
               steps.innerHTML = wechat
                 ? '<li>点右上角 <b>···</b></li><li>选「在 Safari 中打开」</li><li>再导入课表 PDF</li>'
@@ -305,7 +317,6 @@
             }
             if (btn2) btn2.style.display = 'none'
           } else {
-            if (arrow) arrow.classList.add('show')
             if (steps) {
               steps.innerHTML =
                 '<li>点右上角 <b>···</b></li><li>选「在浏览器打开」</li>'
@@ -330,7 +341,6 @@
         } else {
           boot()
         }
-        // React 挂载后再锁一次，防止被盖住
         setTimeout(showGate, 0)
         setTimeout(showGate, 300)
         setTimeout(showGate, 1000)
@@ -344,8 +354,10 @@
         <h1 id="ext-title">请用手机浏览器打开</h1>
         <p id="ext-desc"></p>
         <ol id="ext-steps" class="steps"></ol>
-        <button type="button" class="btn" id="ext-btn">用手机浏览器打开</button>
-        <button type="button" class="btn2" id="ext-btn2">复制链接手动打开</button>
+        <button type="button" class="btn" id="ext-btn">复制链接</button>
+        <button type="button" class="btn2" id="ext-btn2">
+          试试自动跳转（多数机型会失败）
+        </button>
       </div>
     </div>
     <div id="root">

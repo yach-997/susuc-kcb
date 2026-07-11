@@ -206,7 +206,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             https://jwgl.suse.edu.cn
           </a>
         </p>
-        <p className="mt-1">版本 1.3.18</p>
+        <p className="mt-1">版本 1.3.19</p>
         <p className="mt-2 break-all text-xs text-muted">
           https://susuc-kcb.shipstatic.com
         </p>
