@@ -49,7 +49,7 @@ export function TermMetaForm({
       return
     }
     if (!termStart) {
-      setError('请选择第一周的日期（一般是开学那周的周一）')
+      setError('请选择第 1 周星期一的日期')
       return
     }
     const monday = toMondayIso(termStart)
@@ -89,9 +89,9 @@ export function TermMetaForm({
       </label>
 
       <label className="mt-3 block text-sm font-medium text-ink">
-        第一周是几月几号？
+        第 1 周星期一是几月几号？
         <span className="mt-0.5 block text-xs font-normal text-muted">
-          填校历上「第 1 周」任意一天即可，会自动对齐到那周周一
+          请填校历上第 1 周的星期一；若填了别的天，会自动对齐到那周周一
         </span>
         <input
           type="date"
