@@ -109,7 +109,7 @@ export function HomePage({ data, onUpdate }: Props) {
   }
 
   const subtitle = (() => {
-    if (!data) return '本地课表 · 零后端'
+    if (!data) return '本地课表'
     const parts: string[] = []
     if (data.termLabel) parts.push(data.termLabel)
     if (beforeTerm) parts.push('未开学')
