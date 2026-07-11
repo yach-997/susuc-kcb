@@ -288,7 +288,7 @@ export function GuidePage({ onImport }: Props) {
           ref={fileRef}
           id="timetable-pdf-input"
           type="file"
-          accept=".pdf,application/pdf,application/octet-stream,*/*"
+          accept="application/pdf,.pdf"
           className="sr-only"
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null
