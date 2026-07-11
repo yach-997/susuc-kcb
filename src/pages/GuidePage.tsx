@@ -265,7 +265,7 @@ export function GuidePage({ onImport }: Props) {
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[0.7rem] font-bold text-white">
                 3
               </span>
-              <p className="min-w-0 flex-1">点下方按钮，上传刚下载的 PDF</p>
+              <p className="min-w-0 flex-1">点下方按钮，上传刚下载的 PDF 文件</p>
             </div>
           </li>
         </ol>
