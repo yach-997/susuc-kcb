@@ -213,7 +213,7 @@ export function GuidePage({ onImport }: Props) {
               </span>
               <div className="min-w-0 flex-1">
                 <p>
-                  手机浏览器打开{' '}
+                  浏览器打开{' '}
                   <a
                     className="break-all font-medium text-brand underline"
                     href="https://jwgl.suse.edu.cn"
