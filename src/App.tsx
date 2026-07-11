@@ -15,7 +15,7 @@ export default function App() {
       <div className="app-shell">
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <Routes>
-            <Route path="/" element={<HomePage data={data} onUpdate={setData} onImport={importData} />} />
+            <Route path="/" element={<HomePage data={data} onUpdate={setData} />} />
             <Route path="/import" element={<ImportPage onImport={importData} />} />
             <Route path="/guide" element={<GuidePage onImport={importData} />} />
             <Route
