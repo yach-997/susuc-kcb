@@ -16,7 +16,6 @@ import {
 import { parseZfPdfBuffer } from '../lib/parsePdf'
 import { prefetchCriticalCmaps } from '../lib/pdfAssets'
 import { hardRefreshApp } from '../lib/hardRefresh'
-import { buildMockPayload } from '../lib/mockData'
 import { normalizeTermLabel, summarizeCourses } from '../lib/storage'
 import type { TimetablePayload } from '../types'
 
@@ -151,11 +150,6 @@ export function GuidePage({ onImport }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时恢复
   }, [])
-
-  const handleDemo = () => {
-    clearImportDraft()
-    finishImport(buildMockPayload(0), '已载入演示课表')
-  }
 
   if (pending) {
     return (
@@ -361,14 +355,6 @@ export function GuidePage({ onImport }: Props) {
             {okMsg}
           </p>
         )}
-
-        <button
-          type="button"
-          onClick={handleDemo}
-          className="mt-2 w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium text-ink"
-        >
-          先看演示课表（不用上传）
-        </button>
 
         {inApp && !error && (
           <p className="mt-3 text-center text-[0.7rem] leading-relaxed text-muted">

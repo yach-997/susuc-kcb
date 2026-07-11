@@ -4,7 +4,6 @@ import { AddCourseSheet } from '../components/AddCourseSheet'
 import { TermMetaForm } from '../components/TermMetaForm'
 import { TodayView } from '../components/TodayView'
 import { WeekView } from '../components/WeekView'
-import { buildMockPayload } from '../lib/mockData'
 import {
   currentTeachingWeek,
   isBeforeTermStart,
@@ -280,13 +279,6 @@ export function HomePage({ data, onUpdate, onImport }: Props) {
           >
             去导入课表
           </Link>
-          <button
-            type="button"
-            className="mt-3 text-sm font-medium text-brand"
-            onClick={() => onImport?.(buildMockPayload(0))}
-          >
-            或先看演示课表
-          </button>
         </div>
       ) : null}
 
