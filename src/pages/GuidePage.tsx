@@ -15,7 +15,7 @@ import { parseZfPdfBuffer } from '../lib/parsePdf'
 import { prefetchCriticalCmaps } from '../lib/pdfAssets'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import { buildMockPayload } from '../lib/mockData'
-import { normalizeTermLabel } from '../lib/storage'
+import { normalizeTermLabel, summarizeCourses } from '../lib/storage'
 import type { TimetablePayload } from '../types'
 
 interface Props {
@@ -50,7 +50,7 @@ export function GuidePage({ onImport }: Props) {
     setError(null)
     setOkMsg(null)
     if (payload.termStart && payload.termLabel) {
-      finishImport(payload, `已导入 ${payload.courses.length} 门课`)
+      finishImport(payload, `已导入 ${summarizeCourses(payload.courses).label}`)
       return
     }
     const draftName = name || fileName || loadImportDraft()?.fileName
@@ -142,14 +142,14 @@ export function GuidePage({ onImport }: Props) {
       <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
         <h1 className="font-display text-2xl font-bold text-ink">确认学期</h1>
         <p className="mt-1 text-sm text-muted leading-relaxed">
-          已识别 {pending.courses.length}{' '}
-          门课。可先去别处再回来，进度会保留；确认后写入课表。
+          已识别 {summarizeCourses(pending.courses).label}
+          。可先去别处再回来，进度会保留；确认后写入课表。
         </p>
         <div className="mt-5">
           <TermMetaForm
             initialLabel={pending.termLabel}
             initialStart={pending.termStart}
-            courseCount={pending.courses.length}
+            courseSummary={summarizeCourses(pending.courses).label}
             onCancel={() => {
               clearImportDraft()
               setPending(null)
@@ -162,7 +162,7 @@ export function GuidePage({ onImport }: Props) {
                   termStart,
                   updatedAt: new Date().toISOString(),
                 },
-                `已导入 ${pending.courses.length} 门课`,
+                `已导入 ${summarizeCourses(pending.courses).label}`,
               )
             }}
           />
@@ -175,7 +175,7 @@ export function GuidePage({ onImport }: Props) {
     <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
       <h1 className="font-display text-2xl font-bold text-ink">导入课表</h1>
       <p className="mt-1 text-sm text-muted leading-relaxed">
-        上传教务导出的课表 PDF文件（表格式 / 列表式均可）。识别后请填写学期与第一周日期。
+        上传教务导出的课表 PDF 文件（表格式 / 列表式均可）。识别后请填写学期与第一周日期。
       </p>
 
       {inApp && (

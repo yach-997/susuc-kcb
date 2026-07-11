@@ -3,6 +3,7 @@ import {
   SECTION_TIME_RANGES,
   WEEKDAY_LABELS,
   courseColor,
+  summarizeCourses,
   todayWeekday,
   weekMatches,
 } from '../lib/storage'
@@ -60,7 +61,7 @@ export function TodayView({
         <div className="rounded-2xl border border-dashed border-line bg-white/70 px-4 py-8 text-center">
           <p className="text-sm font-medium text-ink">学期还没开始</p>
           <p className="mt-1 text-xs text-muted leading-relaxed">
-            课表已导入（共 {courses.length} 条）。到了你填的第一周之后，「今日」会按日期自动显示。
+            课表已导入（共 {summarizeCourses(courses).label}）。到了你填的第一周之后，「今日」会按日期自动显示。
           </p>
           {onShowWeek && (
             <button
@@ -74,8 +75,19 @@ export function TodayView({
         </div>
       ) : week == null ? (
         <div className="rounded-2xl border border-dashed border-line bg-white/70 px-4 py-8 text-center">
-          <p className="text-sm font-medium text-ink">还不能算「今天上哪节」</p>
-          <p className="mt-1 text-xs text-muted">请在设置里确认学期和第一周日期</p>
+          <p className="text-sm font-medium text-ink">本学期课表周次已过完</p>
+          <p className="mt-1 text-xs text-muted leading-relaxed">
+            「今日」不再按日期推算。可切到「本周」浏览各周课表，或在设置里改第一周日期。
+          </p>
+          {onShowWeek && (
+            <button
+              type="button"
+              onClick={onShowWeek}
+              className="mt-4 rounded-xl bg-brand-soft px-4 py-2.5 text-sm font-semibold text-brand-dark"
+            >
+              去看本周课表
+            </button>
+          )}
         </div>
       ) : list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line bg-white/70 px-4 py-8 text-center">

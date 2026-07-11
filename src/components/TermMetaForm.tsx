@@ -13,7 +13,8 @@ export interface TermMeta {
 interface Props {
   initialLabel?: string
   initialStart?: string
-  courseCount?: number
+  /** 如「9 门课 · 27 条课次」 */
+  courseSummary?: string
   submitText?: string
   onSubmit: (meta: TermMeta) => void
   onCancel?: () => void
@@ -22,7 +23,7 @@ interface Props {
 export function TermMetaForm({
   initialLabel,
   initialStart,
-  courseCount,
+  courseSummary,
   submitText = '保存并查看课表',
   onSubmit,
   onCancel,
@@ -69,8 +70,8 @@ export function TermMetaForm({
       <div className="text-xs font-semibold text-brand">还差一步</div>
       <h2 className="mt-1 text-lg font-semibold text-ink">填写学期信息</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted">
-        {courseCount != null
-          ? `已识别 ${courseCount} 门课。再填两项，课表就能按日期自动跳到本周、显示今天的课。`
+        {courseSummary != null
+          ? `已识别 ${courseSummary}。再填两项，课表就能按日期自动跳到本周、显示今天的课。`
           : '填好后，课表会按日期自动跳到本周，并优先显示今天的课。'}
       </p>
 

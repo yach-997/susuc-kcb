@@ -6,6 +6,7 @@ import {
   clearTimetable,
   normalizeTermLabel,
   saveTimetable,
+  summarizeCourses,
 } from '../lib/storage'
 import type { TimetablePayload } from '../types'
 
@@ -121,7 +122,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         <h2 className="font-semibold text-ink">课表数据</h2>
         <p className="mt-1 text-sm text-muted">
           {data
-            ? `${data.courses.length} 门课 · 更新于 ${new Date(data.updatedAt).toLocaleString('zh-CN')}`
+            ? `${summarizeCourses(data.courses).label} · 更新于 ${new Date(data.updatedAt).toLocaleString('zh-CN')}`
             : '暂无数据'}
         </p>
         <div className="mt-3 grid gap-2">
@@ -188,7 +189,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             https://jwgl.suse.edu.cn
           </a>
         </p>
-        <p className="mt-1">版本 1.3.10</p>
+        <p className="mt-1">版本 1.3.11</p>
         <p className="mt-2 break-all text-xs text-muted">
           https://susuc-kcb.shipstatic.com
         </p>

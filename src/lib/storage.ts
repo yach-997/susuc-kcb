@@ -65,6 +65,26 @@ export function courseColor(name: string): string {
   return PALETTE[h % PALETTE.length]
 }
 
+/**
+ * 统计课表：一门课名可对应多个时间格子（课次）。
+ * 展示用「N 门课 · M 条课次」，避免把课次误当成门数。
+ */
+export function summarizeCourses(courses: Course[]): {
+  slots: number
+  unique: number
+  label: string
+} {
+  const slots = courses.length
+  const unique = new Set(
+    courses.map((c) => c.name.trim()).filter(Boolean),
+  ).size
+  const label =
+    unique === slots
+      ? `${slots} 门课`
+      : `${unique} 门课 · ${slots} 条课次`
+  return { slots, unique, label }
+}
+
 export function parseWeekParity(weeks: string): WeekParity {
   if (/单/.test(weeks)) return 'odd'
   if (/双/.test(weeks)) return 'even'

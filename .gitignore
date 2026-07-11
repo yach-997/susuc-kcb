@@ -29,6 +29,10 @@ lerna-debug.log*
 .env.*
 !.env.example
 
+# Local PDF debug dumps (do not ship student samples)
+tmp-*.pdf
+tmp-*-dump*.txt
+
 # TypeScript
 *.tsbuildinfo
 

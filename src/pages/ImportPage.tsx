@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { decodeImportPayload } from '../lib/storage'
+import { decodeImportPayload, summarizeCourses } from '../lib/storage'
 import type { TimetablePayload } from '../types'
 
 interface Props {
@@ -11,7 +11,7 @@ export function ImportPage({ onImport }: Props) {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
-  const [count, setCount] = useState<number | null>(null)
+  const [summary, setSummary] = useState<string | null>(null)
 
   const encoded = useMemo(() => {
     // hash 路由下 query 可能在 hash 内：#/import?d=...
@@ -33,7 +33,7 @@ export function ImportPage({ onImport }: Props) {
     try {
       const payload = decodeImportPayload(encoded)
       onImport(payload)
-      setCount(payload.courses.length)
+      setSummary(summarizeCourses(payload.courses).label)
       const t = window.setTimeout(() => navigate('/', { replace: true }), 1200)
       return () => window.clearTimeout(t)
     } catch (e) {
@@ -63,7 +63,7 @@ export function ImportPage({ onImport }: Props) {
           <div className="h-12 w-12 animate-pulse rounded-full border-4 border-brand border-t-transparent" />
           <h1 className="mt-5 text-lg font-bold text-ink">正在导入课表</h1>
           <p className="mt-2 text-sm text-muted">
-            {count != null ? `已写入 ${count} 门课程，即将跳转…` : '解析数据中…'}
+            {summary != null ? `已写入 ${summary}，即将跳转…` : '解析数据中…'}
           </p>
         </>
       )}

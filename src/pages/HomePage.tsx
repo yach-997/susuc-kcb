@@ -10,6 +10,7 @@ import {
   maxWeekFromCourses,
   normalizeTermLabel,
   saveTimetable,
+  summarizeCourses,
 } from '../lib/storage'
 import type { Course, TimetablePayload } from '../types'
 
@@ -113,7 +114,7 @@ export function HomePage({ data, onUpdate }: Props) {
     if (data.termLabel) parts.push(data.termLabel)
     if (beforeTerm) parts.push('未开学')
     else if (teachingWeek != null) parts.push(`第 ${teachingWeek} 周`)
-    parts.push(`${data.courses.length} 条课次`)
+    parts.push(summarizeCourses(data.courses).label)
     return parts.join(' · ')
   })()
 
@@ -152,7 +153,9 @@ export function HomePage({ data, onUpdate }: Props) {
         <div className="mx-3 mt-2">
           <TermMetaForm
             initialLabel={data.termLabel}
-            courseCount={data.courses.length}
+            courseSummary={
+              data ? summarizeCourses(data.courses).label : undefined
+            }
             submitText="保存学期信息"
             onSubmit={({ termLabel, termStart }) => saveMeta(termLabel, termStart)}
           />
