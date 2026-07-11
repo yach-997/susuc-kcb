@@ -115,6 +115,16 @@ export function TodayView({
                   <div className="flex items-baseline justify-between gap-2">
                     <h3 className="truncate text-sm font-bold text-ink">
                       {c.name}
+                      {c.weekParity === 'odd' && (
+                        <span className="ml-1.5 align-middle text-[0.65rem] font-semibold text-muted">
+                          单周
+                        </span>
+                      )}
+                      {c.weekParity === 'even' && (
+                        <span className="ml-1.5 align-middle text-[0.65rem] font-semibold text-muted">
+                          双周
+                        </span>
+                      )}
                       {c.source === 'manual' && (
                         <span className="ml-1.5 align-middle text-[0.65rem] font-semibold text-brand">
                           自加

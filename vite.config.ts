@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -5,9 +6,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // 本地默认 './'；CI 也可注入 VITE_BASE
 const base = process.env.VITE_BASE || './'
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8')) as {
+  version: string
+}
 
 export default defineConfig({
   base,
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react(),
     tailwindcss(),

@@ -132,7 +132,7 @@ export function HomePage({ data, onUpdate, onImport }: Props) {
       <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-1">
         <div className="min-w-0">
           <h1 className="font-display text-lg font-bold tracking-tight text-ink">
-            川轻化课表
+            川轻化课表助手
           </h1>
           <p className="truncate text-[0.7rem] text-muted">{subtitle}</p>
         </div>

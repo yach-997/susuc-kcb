@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AddToHomeButton } from '../components/AddToHomeButton'
 import { TermMetaForm } from '../components/TermMetaForm'
+import { APP_VERSION } from '../appVersion'
+import { clearImportDraft } from '../lib/importDraft'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import { buildMockPayload } from '../lib/mockData'
 import {
@@ -53,6 +55,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
 
   const handleClearTimetable = () => {
     if (!confirm('确定清除本地课表？')) return
+    clearImportDraft()
     clearTimetable()
     onClear()
     flash('已清除')
@@ -69,37 +72,6 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       )}
 
       <section className="mt-6 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">更新 / 清理</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          同学请收藏这一个固定地址（更新后刷新即可，不用换链接）：
-        </p>
-        <a
-          className="mt-2.5 block break-all rounded-lg bg-surface px-3 py-2.5 text-sm font-medium text-brand"
-          href="https://susuc-kcb.shipstatic.com"
-        >
-          https://susuc-kcb.shipstatic.com
-        </a>
-        <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
-          若页面还是旧版，先清理缓存；不要的课表可在下方清除。
-        </p>
-        <button
-          type="button"
-          disabled={refreshing}
-          onClick={handleHardRefresh}
-          className="mt-3.5 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          {refreshing ? '正在清理…' : '清理缓存并刷新'}
-        </button>
-        <button
-          type="button"
-          onClick={handleClearTimetable}
-          className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-expired"
-        >
-          清除本地课表
-        </button>
-      </section>
-
-      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
         <h2 className="text-[0.95rem] font-semibold text-ink">学期信息</h2>
         {data && data.courses.length > 0 ? (
           <>
@@ -143,7 +115,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       </section>
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">课表数据</h2>
+        <h2 className="text-[0.95rem] font-semibold text-ink">当前课表</h2>
         <p className="mt-1.5 text-sm text-muted">
           {data
             ? `${summarizeCourses(data.courses).label} · 更新于 ${new Date(data.updatedAt).toLocaleString('zh-CN')}`
@@ -151,19 +123,57 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         </p>
         <button
           type="button"
+          onClick={() => navigate('/guide')}
+          className="mt-3 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white"
+        >
+          {data?.courses?.length ? '重新导入课表' : '去导入课表'}
+        </button>
+        <button
+          type="button"
           onClick={loadDemo}
-          className="mt-3 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink"
+          className="mt-2 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink"
         >
           先看演示课表
+        </button>
+        <button
+          type="button"
+          onClick={handleClearTimetable}
+          className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-expired"
+        >
+          清除本地课表
         </button>
       </section>
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4">
         <h2 className="text-[0.95rem] font-semibold text-ink">添加到桌面</h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          放到手机桌面后，打开更快，也更像一个 App。
+          放到手机桌面后，打开更快，也更像一个 App。需联网使用。
         </p>
         <AddToHomeButton />
+      </section>
+
+      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
+        <h2 className="text-[0.95rem] font-semibold text-ink">更新 / 清理</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">
+          固定地址（更新后刷新即可，不用换链接）：
+        </p>
+        <a
+          className="mt-2.5 block break-all rounded-lg bg-surface px-3 py-2.5 text-sm font-medium text-brand"
+          href="https://susuc-kcb.shipstatic.com"
+        >
+          https://susuc-kcb.shipstatic.com
+        </a>
+        <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
+          若页面还是旧版，点下方清理缓存。
+        </p>
+        <button
+          type="button"
+          disabled={refreshing}
+          onClick={handleHardRefresh}
+          className="mt-3.5 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-60"
+        >
+          {refreshing ? '正在清理…' : '清理缓存并刷新'}
+        </button>
       </section>
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4">
@@ -191,8 +201,9 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4 text-sm leading-relaxed text-muted">
         <h2 className="text-[0.95rem] font-semibold text-ink">关于</h2>
-        <p className="mt-2 text-ink">四川轻化工大学课表助手</p>
-        <p className="mt-1">
+        <p className="mt-2 text-ink">川轻化课表助手</p>
+        <p className="mt-1 text-xs text-muted">四川轻化工大学课表助手</p>
+        <p className="mt-2">
           正方教务：{' '}
           <a
             className="break-all text-brand underline decoration-brand/30 underline-offset-2"
@@ -203,10 +214,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             https://jwgl.suse.edu.cn
           </a>
         </p>
-        <p className="mt-1">版本 1.3.23</p>
-        <p className="mt-2 break-all text-xs text-muted/80">
-          https://susuc-kcb.shipstatic.com
-        </p>
+        <p className="mt-1">版本 {APP_VERSION}</p>
       </section>
     </div>
   )

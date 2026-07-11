@@ -34,6 +34,7 @@ export function AddToHomeButton() {
   )
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(() => isStandalone())
+  const [tip, setTip] = useState<string | null>(null)
 
   useEffect(() => {
     if (isStandalone()) {
@@ -50,6 +51,7 @@ export function AddToHomeButton() {
 
   const onClick = async () => {
     if (done) return
+    setTip(null)
     if (deferred) {
       setBusy(true)
       try {
@@ -57,24 +59,32 @@ export function AddToHomeButton() {
         const choice = await deferred.userChoice
         setDeferred(null)
         if (choice.outcome === 'accepted') setDone(true)
+        else setTip(fallbackInstallTip())
       } catch {
-        window.alert(fallbackInstallTip())
+        setTip(fallbackInstallTip())
       } finally {
         setBusy(false)
       }
       return
     }
-    window.alert(fallbackInstallTip())
+    setTip(fallbackInstallTip())
   }
 
   return (
-    <button
-      type="button"
-      disabled={busy || done}
-      onClick={() => void onClick()}
-      className="mt-3 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-    >
-      {done ? '已在桌面打开' : busy ? '请稍候…' : '添加到手机桌面'}
-    </button>
+    <div>
+      <button
+        type="button"
+        disabled={busy || done}
+        onClick={() => void onClick()}
+        className="mt-3 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {done ? '已在桌面打开' : busy ? '请稍候…' : '添加到手机桌面'}
+      </button>
+      {tip && (
+        <p className="mt-2 rounded-lg bg-surface px-3 py-2 text-[0.75rem] leading-relaxed text-muted">
+          {tip}
+        </p>
+      )}
+    </div>
   )
 }

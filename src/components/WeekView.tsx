@@ -236,12 +236,18 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
             const rowEnd = sectionRow(endSec) + 1
             const color = courseColor(course.name)
             const clickable = course.source === 'manual' && onCourseClick
+            const stripe =
+              course.weekParity === 'odd'
+                ? ', repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(255,255,255,0.22) 3px, rgba(255,255,255,0.22) 6px)'
+                : course.weekParity === 'even'
+                  ? ', repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.14) 3px, rgba(0,0,0,0.14) 6px)'
+                  : ''
             const className =
               'z-10 m-[3px] flex flex-col items-center justify-center overflow-hidden rounded-md px-1 py-1 text-center text-white shadow-sm'
             const style = {
               gridColumn: course.weekday + 1,
               gridRow: `${rowStart} / ${rowEnd}`,
-              background: `linear-gradient(160deg, ${color}f2, ${color}cc)`,
+              background: `linear-gradient(160deg, ${color}f2, ${color}cc)${stripe}`,
             } as const
             const body = (
               <>
@@ -251,8 +257,21 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
                 <div className="mt-0.5 text-[0.52rem] leading-tight opacity-95 break-all">
                   {course.room}
                 </div>
-                {course.source === 'manual' && (
-                  <div className="mt-0.5 text-[0.48rem] opacity-90">自加</div>
+                {(course.weekParity === 'odd' ||
+                  course.weekParity === 'even' ||
+                  course.source === 'manual') && (
+                  <div className="mt-0.5 text-[0.48rem] opacity-90">
+                    {[
+                      course.weekParity === 'odd'
+                        ? '单周'
+                        : course.weekParity === 'even'
+                          ? '双周'
+                          : '',
+                      course.source === 'manual' ? '自加' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
                 )}
               </>
             )
@@ -276,7 +295,7 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
 
         <p className="mt-2 text-center text-[0.65rem] text-muted">
           第 {viewWeek} 周
-          {viewingRealToday ? '（含今天）' : ''} · 点上方周数可切换
+          {viewingRealToday ? '（含今天）' : ''} · 单周斜纹 / 双周反斜纹
         </p>
       </div>
     </div>
