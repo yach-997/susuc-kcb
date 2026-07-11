@@ -165,9 +165,9 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       </section>
 
       <section className="mt-4 rounded-2xl border border-line bg-white/90 p-4 shadow-sm">
-        <h2 className="font-semibold text-ink">调课通知频道</h2>
+        <h2 className="font-semibold text-ink">联系方式（QQ）</h2>
         <p className="mt-1 text-sm text-muted">
-          底部引流按钮将打开此链接（可改成 QQ/微信/Telegram 等）。
+          同学使用有问题可点底部按钮联系；也可在此修改跳转链接。
         </p>
         <input
           value={channel}
@@ -179,7 +179,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
           type="button"
           onClick={() => {
             setChannelUrl(channel.trim() || DEFAULT_CHANNEL_URL)
-            flash('频道链接已保存')
+            flash('联系链接已保存')
           }}
           className="mt-2 w-full rounded-xl bg-brand-soft px-4 py-2.5 text-sm font-semibold text-brand-dark"
         >
@@ -201,7 +201,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             https://jwgl.suse.edu.cn
           </a>
         </p>
-        <p className="mt-1">版本 1.3.0</p>
+        <p className="mt-1">版本 1.3.1</p>
         <p className="mt-2 break-all text-xs text-muted">
           https://susuc-kcb.shipstatic.com
         </p>

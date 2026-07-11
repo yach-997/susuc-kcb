@@ -1,9 +1,9 @@
 import type { Course, TimetablePayload, WeekParity } from '../types'
 
 const STORAGE_KEY = 'susuc-timetable-v1'
-const CHANNEL_URL_KEY = 'susuc-channel-url'
+const CHANNEL_URL_KEY = 'susuc-channel-url-v2'
 
-export const DEFAULT_CHANNEL_URL = 'https://t.me/'
+export const DEFAULT_CHANNEL_URL = 'https://qm.qq.com/q/iy0gyxKnrq'
 
 export const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'] as const
 

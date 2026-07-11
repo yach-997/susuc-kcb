@@ -278,7 +278,7 @@ export function HomePage({ data, onUpdate }: Props) {
         </div>
       ) : null}
 
-      {!(data && data.courses.length > 0) && <ChannelCTA />}
+      <ChannelCTA />
 
       <AddCourseSheet
         open={sheetOpen}
