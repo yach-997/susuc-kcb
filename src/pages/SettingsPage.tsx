@@ -43,7 +43,6 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
   return (
     <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
       <h1 className="font-display text-2xl font-bold text-ink">设置</h1>
-      <p className="mt-1 text-sm text-muted">数据仅保存在本机，不会上传。</p>
 
       {msg && (
         <div className="mt-3 rounded-xl border border-brand/30 bg-brand-soft px-3 py-2 text-sm text-brand-dark">
@@ -189,7 +188,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             https://jwgl.suse.edu.cn
           </a>
         </p>
-        <p className="mt-1">版本 1.3.6</p>
+        <p className="mt-1">版本 1.3.7</p>
         <p className="mt-2 break-all text-xs text-muted">
           https://susuc-kcb.shipstatic.com
         </p>
