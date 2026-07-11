@@ -72,7 +72,7 @@ export function AddToHomeButton() {
       type="button"
       disabled={busy || done}
       onClick={() => void onClick()}
-      className="mt-3 w-full rounded-xl bg-brand-soft px-4 py-2.5 text-sm font-semibold text-brand-dark disabled:opacity-60"
+      className="mt-3 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
     >
       {done ? '已在桌面打开' : busy ? '请稍候…' : '添加到手机桌面'}
     </button>
