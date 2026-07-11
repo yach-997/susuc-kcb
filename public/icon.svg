@@ -1,11 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
-  <rect width="180" height="180" rx="40" fill="#0d6e5a"/>
-  <rect x="30" y="40" width="120" height="100" rx="14" fill="#e6f4ef"/>
-  <rect x="30" y="40" width="120" height="26" rx="14" fill="#0a5646"/>
-  <rect x="30" y="54" width="120" height="12" fill="#0a5646"/>
-  <rect x="48" y="80" width="26" height="20" rx="4" fill="#0d6e5a"/>
-  <rect x="78" y="80" width="26" height="20" rx="4" fill="#2563eb"/>
-  <rect x="108" y="80" width="26" height="20" rx="4" fill="#db2777"/>
-  <rect x="48" y="108" width="26" height="20" rx="4" fill="#c2410c"/>
-  <rect x="78" y="108" width="26" height="20" rx="4" fill="#7c3aed"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="128" y1="0" x2="384" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12856d"/>
+      <stop offset="1" stop-color="#0a5646"/>
+    </linearGradient>
+    <linearGradient id="card" x1="120" y1="96" x2="392" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef7f3"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#05362c" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <!-- iOS-like rounded square -->
+  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
+  <!-- soft highlight -->
+  <ellipse cx="180" cy="90" rx="160" ry="90" fill="#ffffff" opacity="0.10"/>
+  <!-- calendar card -->
+  <g filter="url(#soft)">
+    <rect x="112" y="108" width="288" height="304" rx="42" fill="url(#card)"/>
+    <!-- header bar -->
+    <rect x="112" y="108" width="288" height="64" rx="42" fill="#0a5646"/>
+    <rect x="112" y="140" width="288" height="32" fill="#0a5646"/>
+    <!-- header dots -->
+    <circle cx="156" cy="140" r="8" fill="#d9f0e8" opacity="0.9"/>
+    <circle cx="184" cy="140" r="8" fill="#d9f0e8" opacity="0.55"/>
+    <!-- soft course blocks -->
+    <rect x="144" y="204" width="100" height="72" rx="18" fill="#d7efe6"/>
+    <rect x="268" y="204" width="100" height="72" rx="18" fill="#9fd4c2"/>
+    <rect x="144" y="296" width="100" height="72" rx="18" fill="#5eac95"/>
+    <rect x="268" y="296" width="100" height="72" rx="18" fill="#0d6e5a"/>
+  </g>
 </svg>

@@ -1,6 +1,9 @@
 /**
- * 生成简易 PWA PNG 图标（纯 Node，无额外依赖）
+ * 生成 PWA PNG 图标（薄荷绿课表卡片风格）
  * 运行: node scripts/generate-icons.mjs
+ *
+ * 若已有手工精修的 PNG，可直接覆盖 public/pwa-*.png；
+ * 本脚本作为可复现的备用生成器。
  */
 import { writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
@@ -36,61 +39,70 @@ function chunk(type, data) {
   return Buffer.concat([len, typeBuf, data, crcBuf])
 }
 
-function solidPng(size, rgb) {
-  const [r, g, b] = rgb
-  const row = Buffer.alloc(1 + size * 3)
+function lerp(a, b, t) {
+  return Math.round(a + (b - a) * t)
+}
+
+function inRoundRect(nx, ny, x0, y0, x1, y1, r) {
+  if (nx < x0 || nx > x1 || ny < y0 || ny > y1) return false
+  const lx = nx - x0
+  const rx = x1 - nx
+  const ty = ny - y0
+  const by = y1 - ny
+  if (lx >= r && rx >= r) return true
+  if (ty >= r && by >= r) return true
+  const cx = lx < r ? r - lx : rx < r ? r - rx : 0
+  const cy = ty < r ? r - ty : by < r ? r - by : 0
+  return cx * cx + cy * cy <= r * r
+}
+
+function paintIcon(size) {
   const rows = []
   for (let y = 0; y < size; y++) {
     const line = Buffer.alloc(1 + size * 3)
     line[0] = 0
+    const ny = (y + 0.5) / size
     for (let x = 0; x < size; x++) {
-      // 圆角遮罩近似 + 日历块
       const nx = (x + 0.5) / size
-      const ny = (y + 0.5) / size
-      const edge = 0.12
-      const inRound =
-        nx > edge &&
-        nx < 1 - edge &&
-        ny > edge &&
-        ny < 1 - edge
-      const cx = Math.min(nx, 1 - nx, ny, 1 - ny)
-      const rounded = cx >= edge * 0.35 || inRound
+      // background gradient
+      let pr = lerp(0x12, 0x0a, ny)
+      let pg = lerp(0x85, 0x56, ny)
+      let pb = lerp(0x6d, 0x46, ny)
 
-      let pr = 0xf3,
-        pg = 0xf7,
-        pb = 0xf5
-      if (rounded) {
-        pr = r
-        pg = g
-        pb = b
-        // 浅色日历区
-        if (nx > 0.18 && nx < 0.82 && ny > 0.22 && ny < 0.78) {
-          pr = 0xe6
-          pg = 0xf4
-          pb = 0xef
-        }
-        // 顶栏
-        if (nx > 0.18 && nx < 0.82 && ny > 0.22 && ny < 0.36) {
-          pr = 0x0a
-          pg = 0x56
-          pb = 0x46
-        }
-        // 色块
-        const blocks = [
-          [0.28, 0.45, 0.42, 0.55, [0x0d, 0x6e, 0x5a]],
-          [0.46, 0.45, 0.6, 0.55, [0x25, 0x63, 0xeb]],
-          [0.64, 0.45, 0.78, 0.55, [0xdb, 0x27, 0x77]],
-          [0.28, 0.58, 0.42, 0.68, [0xc2, 0x41, 0x0c]],
-          [0.46, 0.58, 0.6, 0.68, [0x7c, 0x3a, 0xed]],
-        ]
-        for (const [x0, y0, x1, y1, col] of blocks) {
-          if (nx >= x0 && nx <= x1 && ny >= y0 && ny <= y1) {
-            pr = col[0]
-            pg = col[1]
-            pb = col[2]
-          }
+      // outer rounded square is the canvas itself for PNG; soft highlight
+      if ((nx - 0.35) ** 2 / 0.12 + (ny - 0.18) ** 2 / 0.05 < 1) {
+        pr = lerp(pr, 255, 0.1)
+        pg = lerp(pg, 255, 0.1)
+        pb = lerp(pb, 255, 0.1)
+      }
+
+      // card
+      if (inRoundRect(nx, ny, 0.22, 0.21, 0.78, 0.8, 0.08)) {
+        pr = lerp(255, 0xee, (nx + ny) / 2)
+        pg = lerp(255, 0xf7, (nx + ny) / 2)
+        pb = lerp(255, 0xf3, (nx + ny) / 2)
+      }
+      // header
+      if (inRoundRect(nx, ny, 0.22, 0.21, 0.78, 0.335, 0.08) || (nx > 0.22 && nx < 0.78 && ny > 0.27 && ny < 0.335)) {
+        pr = 0x0a
+        pg = 0x56
+        pb = 0x46
+      }
+      // blocks
+      const blocks = [
+        [0.28, 0.4, 0.47, 0.54, [0xd7, 0xef, 0xe6]],
+        [0.53, 0.4, 0.72, 0.54, [0x9f, 0xd4, 0xc2]],
+        [0.28, 0.58, 0.47, 0.72, [0x5e, 0xac, 0x95]],
+        [0.53, 0.58, 0.72, 0.72, [0x0d, 0x6e, 0x5a]],
+      ]
+      for (const [x0, y0, x1, y1, col] of blocks) {
+        if (inRoundRect(nx, ny, x0, y0, x1, y1, 0.035)) {
+          pr = col[0]
+          pg = col[1]
+          pb = col[2]
         }
       }
+
       const i = 1 + x * 3
       line[i] = pr
       line[i + 1] = pg
@@ -103,9 +115,6 @@ function solidPng(size, rgb) {
   ihdr.writeUInt32BE(size, 4)
   ihdr[8] = 8
   ihdr[9] = 2
-  ihdr[10] = 0
-  ihdr[11] = 0
-  ihdr[12] = 0
   const idat = deflateSync(Buffer.concat(rows), { level: 9 })
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
@@ -115,10 +124,9 @@ function solidPng(size, rgb) {
   ])
 }
 
-const brand = [0x0d, 0x6e, 0x5a]
 for (const size of [180, 192, 512]) {
   const name =
     size === 180 ? 'apple-touch-icon.png' : size === 192 ? 'pwa-192.png' : 'pwa-512.png'
-  writeFileSync(join(publicDir, name), solidPng(size, brand))
+  writeFileSync(join(publicDir, name), paintIcon(size))
   console.log('wrote', name)
 }
