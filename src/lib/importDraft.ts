@@ -167,7 +167,7 @@ export function inAppBrowserKind(): 'wechat' | 'qq' | null {
   return null
 }
 
-/** 给同学复制到系统浏览器打开的干净地址 */
+/** 给同学复制到手机浏览器打开的干净地址 */
 export function publicAppUrl(): string {
   const { origin, pathname } = window.location
   const base = pathname.replace(/\/index\.html$/i, '/').replace(/\/?$/, '/')

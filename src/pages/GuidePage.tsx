@@ -42,7 +42,7 @@ export function GuidePage({ onImport }: Props) {
     try {
       await navigator.clipboard.writeText(url)
     } catch {
-      window.prompt('复制下面的链接，到系统浏览器打开：', url)
+      window.prompt('复制下面的链接，到手机浏览器打开：', url)
       return
     }
     setCopied(true)
@@ -332,7 +332,7 @@ export function GuidePage({ onImport }: Props) {
                   里打开，部分机型会导入失败
                 </p>
                 <p className="mt-1 text-[0.75rem] text-muted">
-                  可改用系统浏览器：右上角 ··· →「
+                  可改用手机浏览器：右上角 ··· →「
                   {appKind === 'qq' ? '用浏览器打开' : '在浏览器打开'}
                   」，或先复制链接再粘贴打开。
                 </p>
@@ -386,7 +386,7 @@ export function GuidePage({ onImport }: Props) {
             >
               {copied ? '已复制链接' : '复制本站链接'}
             </button>
-            到系统浏览器打开。
+            到手机浏览器打开。
           </p>
         )}
       </section>
