@@ -5,6 +5,7 @@ import {
   WEEKDAY_LABELS,
   courseColor,
   maxSection,
+  maxWeekFromCourses,
   mondayOfWeek,
   todayWeekday,
   weekMatches,
@@ -17,29 +18,16 @@ interface Props {
   onCourseClick?: (course: Course) => void
 }
 
-function detectMaxWeek(courses: Course[]): number {
-  let max = 16
-  for (const c of courses) {
-    const range = c.weeks.match(/(\d+)\s*[-~至]\s*(\d+)/)
-    if (range) {
-      max = Math.max(max, Number(range[1]), Number(range[2]))
-      continue
-    }
-    const single = c.weeks.match(/(\d+)/)
-    if (single) max = Math.max(max, Number(single[1]))
-  }
-  return Math.min(Math.max(max, 1), 30)
-}
-
-/** 节次 → 网格行号（1=表头） */
+/** 节次 → 网格行号（1=表头；午休占一行） */
 function sectionRow(sec: number): number {
   if (sec <= 4) return 1 + sec
   return sec + 2
 }
 
 export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: Props) {
-  const maxWeek = useMemo(() => detectMaxWeek(courses), [courses])
-  const periodCount = Math.max(maxSection(courses), 8)
+  // 周数 / 节数完全跟课表数据走，不多不少
+  const maxWeek = useMemo(() => Math.max(maxWeekFromCourses(courses), 1), [courses])
+  const periodCount = useMemo(() => maxSection(courses), [courses])
   const defaultWeek = useMemo(() => {
     if (suggestedWeek && suggestedWeek >= 1 && suggestedWeek <= maxWeek) {
       return suggestedWeek
@@ -88,10 +76,19 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
     })
   }, [viewWeek, suggestedWeek, termStart])
 
-  const lastRow = sectionRow(periodCount)
+  const lastRow = periodCount > 0 ? sectionRow(periodCount) : 1
   const lunchRow = 6
+  const showLunch = periodCount > 4
   const sections = Array.from({ length: periodCount }, (_, i) => i + 1)
   const isCurrentWeek = suggestedWeek != null && viewWeek === suggestedWeek
+
+  if (periodCount === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-6 py-10 text-center text-sm text-muted">
+        当前课表没有带节次的课程可展示
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -157,21 +154,25 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
             )
           })}
 
-          <div
-            className="sticky left-0 z-20 flex items-center justify-center border-b border-r border-line/50 bg-amber-50 text-[0.58rem] font-semibold text-amber-800"
-            style={{ gridColumn: 1, gridRow: lunchRow }}
-          >
-            午休
-          </div>
-          {WEEKDAY_LABELS.map((_, i) => (
-            <div
-              key={`lunch-${i}`}
-              className={`border-b border-line/40 bg-amber-50/50 ${
-                isCurrentWeek && i + 1 === today ? 'bg-brand-soft/30' : ''
-              }`}
-              style={{ gridColumn: i + 2, gridRow: lunchRow }}
-            />
-          ))}
+          {showLunch && (
+            <>
+              <div
+                className="sticky left-0 z-20 flex items-center justify-center border-b border-r border-line/50 bg-amber-50 text-[0.58rem] font-semibold text-amber-800"
+                style={{ gridColumn: 1, gridRow: lunchRow }}
+              >
+                午休
+              </div>
+              {WEEKDAY_LABELS.map((_, i) => (
+                <div
+                  key={`lunch-${i}`}
+                  className={`border-b border-line/40 bg-amber-50/50 ${
+                    isCurrentWeek && i + 1 === today ? 'bg-brand-soft/30' : ''
+                  }`}
+                  style={{ gridColumn: i + 2, gridRow: lunchRow }}
+                />
+              ))}
+            </>
+          )}
 
           {sections.map((sec) => {
             const row = sectionRow(sec)

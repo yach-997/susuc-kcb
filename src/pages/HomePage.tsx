@@ -8,6 +8,7 @@ import { WeekView } from '../components/WeekView'
 import {
   currentTeachingWeek,
   isBeforeTermStart,
+  maxWeekFromCourses,
   normalizeTermLabel,
   saveTimetable,
 } from '../lib/storage'
@@ -24,14 +25,8 @@ export function HomePage({ data, onUpdate }: Props) {
   const beforeTerm = !!(data?.termStart && isBeforeTermStart(data.termStart))
   const teachingWeek = useMemo(() => {
     if (!data?.termStart) return null
-    let max = 16
-    for (const c of data.courses) {
-      const range = c.weeks.match(/(\d+)\s*[-~至]\s*(\d+)/)
-      if (range) max = Math.max(max, Number(range[1]), Number(range[2]))
-      const single = c.weeks.match(/(\d+)/)
-      if (single) max = Math.max(max, Number(single[1]))
-    }
-    return currentTeachingWeek(data.termStart, Math.min(max, 30))
+    const max = maxWeekFromCourses(data.courses)
+    return currentTeachingWeek(data.termStart, Math.max(max, 1))
   }, [data])
   /** 本周视图：未开学时默认预览第 1 周 */
   const weekViewWeek = teachingWeek ?? (beforeTerm ? 1 : null)

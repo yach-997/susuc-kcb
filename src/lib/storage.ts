@@ -201,15 +201,28 @@ export function weekMatches(course: Course, week: number | null): boolean {
   })
 }
 
+/** 课表里出现过的最大周次（严格按数据，无默认 16/30 等上下限） */
+export function maxWeekFromCourses(courses: Course[]): number {
+  let max = 0
+  for (const c of courses) {
+    if (!c.weeks) continue
+    for (const m of c.weeks.matchAll(/(\d+)/g)) {
+      const n = Number(m[1])
+      if (Number.isFinite(n) && n > 0) max = Math.max(max, n)
+    }
+  }
+  return max
+}
+
+/** 有排课课程的最大节次（严格按数据，无默认 8/11/14/16 等上下限） */
 export function maxSection(courses: Course[]): number {
-  let m = 8
+  let m = 0
   for (const c of courses) {
     if ((c.schedule ?? 'timed') !== 'timed') continue
     if (c.endSection > 0) m = Math.max(m, c.endSection)
     if (c.startSection > 0) m = Math.max(m, c.startSection)
   }
-  // 按课表实际最大节次展示，正方晚间常见到 14 节
-  return Math.min(Math.max(m, 8), 16)
+  return m
 }
 
 export function uid(): string {
