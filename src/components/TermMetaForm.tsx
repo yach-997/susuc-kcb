@@ -20,6 +20,9 @@ interface Props {
   onCancel?: () => void
 }
 
+const fieldClass =
+  'box-border mt-1.5 block w-full min-w-0 max-w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand'
+
 export function TermMetaForm({
   initialLabel,
   initialStart,
@@ -65,7 +68,7 @@ export function TermMetaForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-line bg-white/95 p-4 shadow-sm animate-slide-up"
+      className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-line bg-white/95 p-4 shadow-sm animate-slide-up"
     >
       <div className="text-xs font-semibold text-brand">还差一步</div>
       <h2 className="mt-1 text-lg font-semibold text-ink">填写学期信息</h2>
@@ -75,35 +78,44 @@ export function TermMetaForm({
           : '填好后，课表会按日期自动跳到本周，并优先显示今天的课。'}
       </p>
 
-      <label className="mt-4 block text-sm font-medium text-ink">
-        这是哪个学期？
+      <div className="mt-4 min-w-0">
+        <label htmlFor="term-label" className="block text-sm font-medium text-ink">
+          这是哪个学期？
+        </label>
         <input
+          id="term-label"
           value={termLabel}
           onChange={(e) => {
             setTermLabel(e.target.value)
             setError(null)
           }}
-          className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
+          className={fieldClass}
           placeholder="例如：2025-2026 上学期"
           autoComplete="off"
         />
-      </label>
+      </div>
 
-      <label className="mt-3 block text-sm font-medium text-ink">
-        开学上课第 1 周星期一是几月几号？
-        <span className="mt-0.5 block text-xs font-normal text-muted">
+      <div className="mt-3 min-w-0">
+        <label htmlFor="term-start" className="block text-sm font-medium text-ink">
+          开学上课第 1 周星期一是几月几号？
+        </label>
+        <p className="mt-0.5 text-xs font-normal text-muted">
           请填校历上第 1 周的星期一；若填了别的天，会自动对齐到那周周一
-        </span>
-        <input
-          type="date"
-          value={termStart}
-          onChange={(e) => {
-            setTermStart(e.target.value)
-            setError(null)
-          }}
-          className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
-        />
-      </label>
+        </p>
+        {/* iOS Safari 的 date 控件自带宽最小宽度，必须包一层截断 */}
+        <div className="field-shell mt-1.5">
+          <input
+            id="term-start"
+            type="date"
+            value={termStart}
+            onChange={(e) => {
+              setTermStart(e.target.value)
+              setError(null)
+            }}
+            className="field-control"
+          />
+        </div>
+      </div>
       {mondayHint && (
         <p className="mt-1 text-xs text-brand-dark">{mondayHint}</p>
       )}

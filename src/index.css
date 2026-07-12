@@ -39,15 +39,72 @@ body {
 
 .app-shell {
   max-width: 480px;
+  width: 100%;
   margin: 0 auto;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   position: relative;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .safe-bottom {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* 统一表单控件：修复 iOS Safari date/number 撑破卡片 */
+.field-shell {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+}
+
+.field-shell:focus-within {
+  border-color: var(--color-brand);
+}
+
+.field-control {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-ink);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* iOS 日期文字左对齐，避免原生控件把内容挤出右侧 */
+input[type='date'].field-control {
+  min-height: 2.75rem;
+}
+input[type='date'].field-control::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+input[type='date'].field-control::-webkit-calendar-picker-indicator {
+  margin: 0;
+  opacity: 0.55;
+}
+
+input,
+textarea,
+select,
+button {
+  max-width: 100%;
 }
 
 .scrollbar-none {

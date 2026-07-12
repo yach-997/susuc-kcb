@@ -153,13 +153,13 @@ export function GuidePage({ onImport }: Props) {
 
   if (pending) {
     return (
-      <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-6 pt-5 animate-fade-in">
         <h1 className="font-display text-2xl font-bold text-ink">确认学期</h1>
         <p className="mt-1 text-sm text-muted leading-relaxed">
           已识别 {summarizeCourses(pending.courses).label}
           。可先去别处再回来，进度会保留；确认后写入课表。
         </p>
-        <div className="mt-5">
+        <div className="mt-5 min-w-0 max-w-full">
           <TermMetaForm
             initialLabel={pending.termLabel}
             initialStart={pending.termStart}

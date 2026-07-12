@@ -159,28 +159,28 @@ export function AddCourseSheet({
               setName(e.target.value)
               setError(null)
             }}
-            className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
+            className="mt-1.5 w-full min-w-0 max-w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
             placeholder="例如：高等数学（补课）"
             autoFocus
           />
         </label>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <label className="block text-sm font-medium text-ink">
+        <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
+          <label className="block min-w-0 text-sm font-medium text-ink">
             老师（选填）
             <input
               value={teacher}
               onChange={(e) => setTeacher(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
+              className="mt-1.5 w-full min-w-0 max-w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
               placeholder="张老师"
             />
           </label>
-          <label className="block text-sm font-medium text-ink">
+          <label className="block min-w-0 text-sm font-medium text-ink">
             教室（选填）
             <input
               value={room}
               onChange={(e) => setRoom(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
+              className="mt-1.5 w-full min-w-0 max-w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand"
               placeholder="N1-101"
             />
           </label>
