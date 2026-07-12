@@ -183,7 +183,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       <section className="mt-3 rounded-2xl border border-line bg-white p-4">
         <h2 className="text-[0.95rem] font-semibold text-ink">添加到桌面</h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          放到手机桌面后，打开更快，也更像一个 App。需联网使用。
+          放到手机桌面后打开更快。请按下面说明操作（需联网使用）。
         </p>
         <AddToHomeButton />
       </section>
