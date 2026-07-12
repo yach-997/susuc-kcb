@@ -54,8 +54,11 @@ export function UpdateBanner() {
 
   const upgrade = () => {
     setBusy(true)
+    // 防止 hardRefresh 异常挂起时按钮永久转圈
+    window.setTimeout(() => {
+      window.location.reload()
+    }, 4000)
     void hardRefreshApp({ clearTimetable: false }).catch(() => {
-      setBusy(false)
       window.location.reload()
     })
   }
