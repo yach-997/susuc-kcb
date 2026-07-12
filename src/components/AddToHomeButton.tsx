@@ -19,7 +19,6 @@ function isStandalone(): boolean {
 /** 设置页：一键添加到手机桌面 */
 export function AddToHomeButton() {
   const deferredRef = useRef<BeforeInstallPromptEvent | null>(null)
-  const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(() => isStandalone())
   const [msg, setMsg] = useState<string | null>(null)
@@ -32,7 +31,6 @@ export function AddToHomeButton() {
     const onBip = (e: Event) => {
       e.preventDefault()
       deferredRef.current = e as BeforeInstallPromptEvent
-      setReady(true)
       setMsg(null)
     }
     window.addEventListener('beforeinstallprompt', onBip)
@@ -70,7 +68,6 @@ export function AddToHomeButton() {
       await event.prompt()
       const choice = await event.userChoice
       deferredRef.current = null
-      setReady(false)
       if (choice.outcome === 'accepted') setDone(true)
     } catch {
       setMsg('添加未完成，请稍后再试')
