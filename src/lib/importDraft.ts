@@ -156,14 +156,14 @@ export function looksLikePdf(file: File): boolean {
 }
 
 export function isInAppBrowser(): boolean {
-  const ua = navigator.userAgent || ''
-  return /MicroMessenger|QQ\//i.test(ua) && !/QQBrowser/i.test(ua)
+  return inAppBrowserKind() !== null
 }
 
 export function inAppBrowserKind(): 'wechat' | 'qq' | null {
   const ua = navigator.userAgent || ''
   if (/MicroMessenger/i.test(ua)) return 'wechat'
-  if (/QQ\//i.test(ua) && !/QQBrowser/i.test(ua)) return 'qq'
+  // 安卓 QQ 内置页 UA 常带 MQQBrowser；不能用 !QQBrowser 排除，否则会误判成普通浏览器
+  if (/QQ\/\d/i.test(ua) || /V1_AND_SQ_/i.test(ua) || /V1_IPH_SQ_/i.test(ua)) return 'qq'
   return null
 }
 

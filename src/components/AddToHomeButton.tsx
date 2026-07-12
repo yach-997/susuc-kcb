@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { publicAppUrl } from '../lib/importDraft'
+import { inAppBrowserKind, publicAppUrl } from '../lib/importDraft'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -18,9 +18,9 @@ function isStandalone(): boolean {
 }
 
 function detectKind(): 'wechat' | 'qq' | 'baidu' | 'ios' | 'android' | 'other' {
+  const inApp = inAppBrowserKind()
+  if (inApp) return inApp
   const ua = navigator.userAgent || ''
-  if (/MicroMessenger/i.test(ua)) return 'wechat'
-  if (/QQ\//i.test(ua) && !/QQBrowser/i.test(ua)) return 'qq'
   if (/baidubrowser|baiduboxapp/i.test(ua)) return 'baidu'
   if (/iPhone|iPad|iPod/i.test(ua)) return 'ios'
   if (/Android/i.test(ua)) return 'android'
