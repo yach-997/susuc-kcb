@@ -358,6 +358,9 @@ export function GuidePage({ onImport }: Props) {
 
         {inApp && !error && (
           <p className="mt-3 text-center text-[0.7rem] leading-relaxed text-muted">
+            当前在
+            {appKind === 'wechat' ? '微信' : appKind === 'qq' ? 'QQ' : '内置浏览器'}
+            里打开。
             {appKind === 'qq' ? (
               <>
                 请

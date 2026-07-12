@@ -31,11 +31,20 @@ function detectKind(): 'wechat' | 'qq' | 'baidu' | 'ios' | 'android' | 'other' {
 function deviceTips(kind: ReturnType<typeof detectKind>): string[] {
   switch (kind) {
     case 'wechat':
-      return ['点「复制链接」，到手机浏览器粘贴打开后再添加桌面']
+      return [
+        '当前在微信里打开',
+        '点「复制链接」，到手机浏览器粘贴打开后再添加桌面',
+      ]
     case 'qq':
-      return ['点「复制链接」，到手机浏览器粘贴打开后再添加桌面']
+      return [
+        '当前在 QQ 里打开',
+        '点「复制链接」，到手机浏览器粘贴打开后再添加桌面',
+      ]
     case 'baidu':
-      return ['点「复制链接」，到系统浏览器粘贴打开后再添加桌面']
+      return [
+        '当前在百度里打开',
+        '点「复制链接」，到系统浏览器粘贴打开后再添加桌面',
+      ]
     case 'ios':
       return ['点底部分享（方框↑）→「添加到主屏幕」']
     case 'android':
