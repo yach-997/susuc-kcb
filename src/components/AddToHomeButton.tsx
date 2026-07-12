@@ -33,21 +33,17 @@ function deviceTips(): string[] {
   }
   if (/baidubrowser|baiduboxapp/i.test(ua)) {
     return [
-      '百度：请用系统浏览器 / Safari / Chrome 打开本站',
+      '百度：请用系统浏览器 / Safari 打开本站',
       '打开后点下方「一键添加到桌面」',
     ]
   }
   if (/iPhone|iPad|iPod/i.test(ua)) {
-    return [
-      '苹果 Safari：点底部分享（方框↑）→「添加到主屏幕」',
-      '一键按钮在苹果上通常不可用，请用分享菜单添加',
-    ]
+    return ['苹果：点底部分享（方框↑）→「添加到主屏幕」']
   }
   if (/Android/i.test(ua)) {
     return [
-      '安卓推荐用 Chrome 打开本站',
-      '点下方「一键添加到桌面」，按系统弹窗确认即可',
-      '若无弹窗：浏览器菜单 ··· →「添加到主屏幕 / 安装应用」',
+      '安卓：先点下方「一键添加到桌面」',
+      '若无弹窗：点浏览器右上角 ··· →「添加到主屏幕」或「安装应用」',
     ]
   }
   return [
