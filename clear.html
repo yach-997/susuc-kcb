@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0d6e5a" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <title>清理缓存 · 课表助手</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        background: #eef6f2;
+        color: #14231e;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .card {
+        width: 100%;
+        max-width: 360px;
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 8px 24px rgba(13, 110, 90, 0.08);
+        text-align: center;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.25rem;
+      }
+      p {
+        margin: 0;
+        color: #5a6f67;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+      .ok {
+        margin-top: 16px;
+        color: #0d6e5a;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>清理缓存</h1>
+      <p id="msg">正在清理旧版缓存，请稍候…</p>
+      <p id="ok" class="ok" hidden>清理完成，即将进入新版</p>
+    </div>
+    <script>
+      ;(async function () {
+        var msg = document.getElementById('msg')
+        var ok = document.getElementById('ok')
+        var params = new URLSearchParams(location.search)
+        var clearData = params.get('data') === '1'
+
+        function step(text) {
+          msg.textContent = text
+        }
+
+        try {
+          step('清理临时数据…')
+          try {
+            sessionStorage.clear()
+          } catch (e) {}
+
+          if (clearData) {
+            step('清理课表数据…')
+            try {
+              var keys = []
+              for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i)
+                if (k && k.indexOf('susuc-') === 0) keys.push(k)
+              }
+              keys.forEach(function (k) {
+                localStorage.removeItem(k)
+              })
+            } catch (e) {}
+          }
+
+          step('注销 Service Worker…')
+          if ('serviceWorker' in navigator) {
+            var regs = await navigator.serviceWorker.getRegistrations()
+            await Promise.all(
+              regs.map(function (r) {
+                return r.unregister()
+              }),
+            )
+          }
+
+          step('删除 Cache Storage…')
+          if ('caches' in window) {
+            var cacheKeys = await caches.keys()
+            await Promise.all(
+              cacheKeys.map(function (k) {
+                return caches.delete(k)
+              }),
+            )
+          }
+
+          ok.hidden = false
+          step('清理完成')
+        } catch (e) {
+          step('清理时出错，仍尝试进入新版…')
+        }
+
+        var base = location.pathname.replace(/clear\.html$/i, '')
+        var next =
+          base +
+          'index.html?_v=' +
+          Date.now() +
+          (clearData ? '&cleared=1' : '') +
+          '#/'
+        setTimeout(function () {
+          location.replace(next)
+        }, 600)
+      })()
+    </script>
+  </body>
+</html>
