@@ -31,10 +31,10 @@ export function LuciusSupport() {
 
   return (
     <ChatWidget
-      widgetId="wgt_jivib4ey"
+      widgetId="wgt_56dtde6o"
       position="right"
       headerColor="#0d6e5a"
-      companyName="川轻化课表助手"
+      companyName="校园百事通"
       zIndex={60}
     />
   )
