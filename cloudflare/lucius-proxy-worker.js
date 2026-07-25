@@ -1,37 +1,41 @@
 /**
- * Cloudflare Worker：把 Lucius 国外接口反代到 *.workers.dev
- * 国内访问 Worker 往往比直连 Railway 更稳（仍非 100%）。
- *
- * 用法：Cloudflare 控制台 → Workers → 创建 → 粘贴本文件 → 部署
- * 记下地址，例如：https://lucius-cn.你的名.workers.dev
+ * Cloudflare Worker：Lucius 反代（国内）
+ * 粘贴到 lucius-cn Worker → Save and Deploy
  */
 
 const API_ORIGIN = 'https://lucius-api-server-prod-prod.up.railway.app'
 const BOT_ORIGIN = 'https://lucius-bot-prod.up.railway.app'
+const ALLOWED_ORIGIN = 'https://susuc-kcb.shipstatic.com'
 
 function corsHeaders(req) {
-  const origin = req.headers.get('Origin') || '*'
+  const origin = req.headers.get('Origin') || ALLOWED_ORIGIN
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers':
       req.headers.get('Access-Control-Request-Headers') ||
       'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
   }
 }
 
 async function proxy(req, targetOrigin) {
-  const url = new URL(req.url)
-  const target = new URL(url.pathname + url.search, targetOrigin)
-
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders(req) })
   }
 
-  const headers = new Headers(req.headers)
-  headers.delete('host')
-  headers.set('host', new URL(targetOrigin).host)
+  const url = new URL(req.url)
+  const target = new URL(url.pathname + url.search, targetOrigin)
+
+  const headers = new Headers()
+  // 只转发必要头，并强制 Origin，避免 Lucius 报 Origin not allowed
+  headers.set('content-type', req.headers.get('content-type') || 'application/json')
+  headers.set('accept', req.headers.get('accept') || 'application/json')
+  headers.set('origin', ALLOWED_ORIGIN)
+  headers.set('referer', `${ALLOWED_ORIGIN}/`)
+  headers.set('user-agent', req.headers.get('user-agent') || 'susuc-kcb-proxy')
 
   const init = {
     method: req.method,
@@ -42,7 +46,23 @@ async function proxy(req, targetOrigin) {
     init.body = await req.arrayBuffer()
   }
 
-  const upstream = await fetch(target.toString(), init)
+  let upstream
+  try {
+    upstream = await fetch(target.toString(), init)
+  } catch (e) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: 'upstream_unreachable',
+        detail: String(e && e.message ? e.message : e),
+      }),
+      {
+        status: 502,
+        headers: { 'content-type': 'application/json', ...corsHeaders(req) },
+      },
+    )
+  }
+
   const outHeaders = new Headers(upstream.headers)
   const cors = corsHeaders(req)
   Object.entries(cors).forEach(([k, v]) => outHeaders.set(k, v))
@@ -58,8 +78,6 @@ export default {
   async fetch(req) {
     const path = new URL(req.url).pathname
 
-    // /bot/*  → lucius-bot-prod .../web/*
-    // /api/*  → lucius-api-server .../api/*
     if (path.startsWith('/bot/')) {
       const u = new URL(req.url)
       u.pathname = path.replace(/^\/bot/, '/web')
@@ -72,9 +90,10 @@ export default {
     return new Response(
       JSON.stringify({
         ok: true,
+        service: 'lucius-cn-proxy',
         usage: {
-          apiBaseUrl: 'https://<worker>/api/v2',
-          sendUrl: 'https://<worker>/bot/message',
+          apiBaseUrl: 'https://lucius-cn.314766236.workers.dev/api/v2',
+          sendUrl: 'https://lucius-cn.314766236.workers.dev/bot/message',
         },
       }),
       {
