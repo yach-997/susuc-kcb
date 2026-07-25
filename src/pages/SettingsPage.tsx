@@ -216,13 +216,15 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4">
         <h2 className="text-[0.95rem] font-semibold text-ink">联系我们</h2>
-        <p className="mt-1.5 text-sm text-muted">使用有问题可联系客服或加入维护群。</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">
+          使用有问题可以联系客服和加入维护群，校园信息发布可点击 QQ 频道发布。
+        </p>
         <div className="mt-3 flex gap-2">
           <a
             href="https://qm.qq.com/q/iy0gyxKnrq"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 rounded-xl border border-line bg-surface px-3 py-2.5 text-center text-sm font-medium text-ink active:opacity-70"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2.5 text-center text-[0.8rem] font-medium text-ink active:opacity-70"
           >
             QQ 客服
           </a>
@@ -230,9 +232,17 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             href="https://qm.qq.com/q/ZwGz3jrQis"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 rounded-xl border border-line bg-surface px-3 py-2.5 text-center text-sm font-medium text-ink active:opacity-70"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2.5 text-center text-[0.8rem] font-medium text-ink active:opacity-70"
           >
             QQ 维护群
+          </a>
+          <a
+            href="https://pd.qq.com/s/6d36qjaxs?b=9"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2.5 text-center text-[0.8rem] font-medium text-ink active:opacity-70"
+          >
+            QQ 频道
           </a>
         </div>
       </section>
