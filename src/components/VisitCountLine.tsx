@@ -94,7 +94,7 @@ export function VisitCountHint() {
   const total = useVisitTotal()
   return (
     <p className="text-center text-[0.65rem] tabular-nums tracking-wide text-muted">
-      累计访问量 {total == null ? '…' : formatVisitCount(total)}
+      累计访问量 {total == null ? '…' : `${formatVisitCount(total)}次`}
     </p>
   )
 }
