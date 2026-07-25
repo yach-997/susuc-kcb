@@ -3,12 +3,25 @@ import { ChatWidget } from '@lucius-ai/chat-widget'
 
 /** Cloudflare Worker 反代（国内免 VPN 更稳） */
 const WORKER = 'https://lucius-cn.314766236.workers.dev'
+const WIDGET_ID = 'wgt_56dtde6o'
 const apiBaseUrl =
   (import.meta.env.VITE_LUCIUS_API_BASE as string | undefined)?.trim() ||
   `${WORKER}/api/v2`
 const sendUrl =
   (import.meta.env.VITE_LUCIUS_SEND_URL as string | undefined)?.trim() ||
   `${WORKER}/bot/message`
+
+/** Lucius 现要求 visitorEmail；无邮箱时接口会失败一直转圈 */
+function ensureVisitorEmail() {
+  try {
+    const key = `lcw-email-${WIDGET_ID}`
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, 'guest@susuc-kcb.local')
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 /** 抬高客服悬浮按钮，避免挡住底部导航 */
 function liftFab() {
@@ -26,6 +39,7 @@ function liftFab() {
 
 export function LuciusSupport() {
   useEffect(() => {
+    ensureVisitorEmail()
     liftFab()
     const t1 = window.setTimeout(liftFab, 300)
     const t2 = window.setTimeout(liftFab, 1200)
@@ -40,7 +54,7 @@ export function LuciusSupport() {
 
   return (
     <ChatWidget
-      widgetId="wgt_56dtde6o"
+      widgetId={WIDGET_ID}
       position="right"
       headerColor="#0d6e5a"
       companyName="校园百事通"
