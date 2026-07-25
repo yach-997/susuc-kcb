@@ -1,15 +1,14 @@
 import { useEffect } from 'react'
 import { ChatWidget } from '@lucius-ai/chat-widget'
 
-/**
- * 可选：用 Cloudflare Worker 反代 Lucius（国内免 VPN 更稳）
- * 在 .env / 构建环境设置：
- *   VITE_LUCIUS_API_BASE=https://xxx.workers.dev/api/v2
- *   VITE_LUCIUS_SEND_URL=https://xxx.workers.dev/bot/message
- * 不设置则仍直连 Railway（国内常需 VPN）
- */
-const apiBaseUrl = (import.meta.env.VITE_LUCIUS_API_BASE as string | undefined)?.trim()
-const sendUrl = (import.meta.env.VITE_LUCIUS_SEND_URL as string | undefined)?.trim()
+/** Cloudflare Worker 反代（国内免 VPN 更稳） */
+const WORKER = 'https://lucius-cn.314766236.workers.dev'
+const apiBaseUrl =
+  (import.meta.env.VITE_LUCIUS_API_BASE as string | undefined)?.trim() ||
+  `${WORKER}/api/v2`
+const sendUrl =
+  (import.meta.env.VITE_LUCIUS_SEND_URL as string | undefined)?.trim() ||
+  `${WORKER}/bot/message`
 
 /** 抬高客服悬浮按钮，避免挡住底部导航 */
 function liftFab() {
@@ -46,8 +45,8 @@ export function LuciusSupport() {
       headerColor="#0d6e5a"
       companyName="校园百事通"
       zIndex={60}
-      {...(apiBaseUrl ? { apiBaseUrl } : {})}
-      {...(sendUrl ? { sendUrl } : {})}
+      apiBaseUrl={apiBaseUrl}
+      sendUrl={sendUrl}
     />
   )
 }
