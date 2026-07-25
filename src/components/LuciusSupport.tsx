@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { ChatWidget } from '@lucius-ai/chat-widget'
 
-/** Cloudflare Worker 反代（国内免 VPN 更稳） */
-const WORKER = 'https://lucius-cn.314766236.workers.dev'
+/** 腾讯云 SCF 香港反代（国内手机可达） */
+const WORKER = 'https://1307642541-fjzcu650c3.ap-hongkong.tencentscf.com'
 const WIDGET_ID = 'wgt_56dtde6o'
 const apiBaseUrl =
   (import.meta.env.VITE_LUCIUS_API_BASE as string | undefined)?.trim() ||
