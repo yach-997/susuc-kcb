@@ -2,7 +2,7 @@
 -- 账号：admin
 -- 初始密码：123456（登录后请尽快修改）
 
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists admin_auth (
   id int primary key check (id = 1),
@@ -52,7 +52,7 @@ create policy telemetry_insert_anon on telemetry_events
 
 -- 重置为 admin / 123456（每次执行本脚本都会同步初始账密，便于找回）
 insert into admin_auth (id, username, password_hash)
-values (1, 'admin', crypt('123456', gen_salt('bf')))
+values (1, 'admin', extensions.crypt('123456', extensions.gen_salt('bf')))
 on conflict (id) do update
 set username = excluded.username,
     password_hash = excluded.password_hash,
@@ -65,7 +65,7 @@ create or replace function public.admin_login(p_username text, p_password text)
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   ok boolean;
@@ -75,7 +75,7 @@ begin
     return json_build_object('ok', false, 'error', 'invalid_password');
   end if;
 
-  select password_hash = crypt(p_password, password_hash)
+  select password_hash = extensions.crypt(p_password, password_hash)
     into ok
   from admin_auth
   where id = 1 and lower(username) = 'admin';
@@ -102,7 +102,7 @@ create or replace function public.admin_change_password(
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   sess boolean;
@@ -121,7 +121,7 @@ begin
     return json_build_object('ok', false, 'error', 'unauthorized');
   end if;
 
-  select password_hash = crypt(p_old, password_hash)
+  select password_hash = extensions.crypt(p_old, password_hash)
     into pass_ok
   from admin_auth
   where id = 1;
@@ -131,7 +131,7 @@ begin
   end if;
 
   update admin_auth
-  set password_hash = crypt(p_new, gen_salt('bf')),
+  set password_hash = extensions.crypt(p_new, extensions.gen_salt('bf')),
       updated_at = now()
   where id = 1;
 
@@ -143,7 +143,7 @@ create or replace function public.admin_stats(p_token text)
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   sess boolean;

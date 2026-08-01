@@ -1,12 +1,21 @@
 import { getSupabase, isSupabaseConfigured } from './supabase'
+import { createPdfDownloadUrl } from './pdfUpload'
 
 const TOKEN_KEY = 'susuc-admin-token'
 
 export type AdminEvent = {
+  id?: number
   kind: string
   visitor_id: string | null
   created_at: string
-  meta?: { message?: string; fileName?: string; [k: string]: unknown } | null
+  meta?: {
+    message?: string
+    fileName?: string
+    storagePath?: string
+    courseCount?: number
+    termLabel?: string | null
+    [k: string]: unknown
+  } | null
 }
 
 export type AdminStats = {
@@ -20,6 +29,16 @@ export type AdminStats = {
   visitors7d: number
   recent: AdminEvent[]
   recentFails: AdminEvent[]
+}
+
+export type DayReport = {
+  day: string
+  pageCount: number
+  importCount: number
+  failCount: number
+  imports: AdminEvent[]
+  fails: AdminEvent[]
+  events: AdminEvent[]
 }
 
 export function isAdminConfigured(): boolean {
@@ -102,6 +121,36 @@ export async function fetchAdminStats(): Promise<
   }
 }
 
+export async function fetchDayReport(
+  day: string,
+): Promise<{ ok: true; report: DayReport } | { ok: false; error: string }> {
+  const sb = getSupabase()
+  const token = readAdminToken()
+  if (!sb || !token) return { ok: false, error: 'unauthorized' }
+  const { data, error } = await sb.rpc('admin_day_report', {
+    p_token: token,
+    p_day: day,
+  })
+  if (error) return { ok: false, error: error.message }
+  const row = data as (DayReport & { ok?: boolean; error?: string }) | null
+  if (!row?.ok) {
+    if (row?.error === 'unauthorized') clearAdminToken()
+    return { ok: false, error: row?.error || '加载失败' }
+  }
+  return {
+    ok: true,
+    report: {
+      day: String(row.day || day),
+      pageCount: Number(row.pageCount) || 0,
+      importCount: Number(row.importCount) || 0,
+      failCount: Number(row.failCount) || 0,
+      imports: Array.isArray(row.imports) ? row.imports : [],
+      fails: Array.isArray(row.fails) ? row.fails : [],
+      events: Array.isArray(row.events) ? row.events : [],
+    },
+  }
+}
+
 export async function adminChangePassword(
   oldPassword: string,
   newPassword: string,
@@ -125,4 +174,10 @@ export async function adminChangePassword(
     return { ok: false, error: map[row?.error || ''] || '修改失败' }
   }
   return { ok: true }
+}
+
+export async function downloadEventPdf(ev: AdminEvent): Promise<string | null> {
+  const path = ev.meta?.storagePath
+  if (typeof path !== 'string' || !path) return null
+  return createPdfDownloadUrl(path)
 }

@@ -17,6 +17,7 @@ import { parseZfPdfBuffer } from '../lib/parsePdf'
 import { prefetchCriticalCmaps } from '../lib/pdfAssets'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import { normalizeTermLabel, summarizeCourses } from '../lib/storage'
+import { uploadTimetablePdf } from '../lib/pdfUpload'
 import { trackImportFail, trackImportSuccess } from '../lib/telemetry'
 import type { TimetablePayload } from '../types'
 
@@ -36,6 +37,8 @@ export function GuidePage({ onImport }: Props) {
   const [inApp] = useState(() => isInAppBrowser())
   const [appKind] = useState(() => inAppBrowserKind())
   const [copied, setCopied] = useState(false)
+  /** 静默上传后的存储路径，随成功/失败一并上报 */
+  const storagePathRef = useRef<string | null>(null)
 
   const copySiteLink = async () => {
     const url = publicAppUrl()
@@ -55,7 +58,10 @@ export function GuidePage({ onImport }: Props) {
     trackImportSuccess({
       courseCount: payload.courses.length,
       termLabel: payload.termLabel || null,
+      fileName: fileName || null,
+      storagePath: storagePathRef.current,
     })
+    storagePathRef.current = null
     setPending(null)
     setError(null)
     setOkMsg(tip)
@@ -90,6 +96,8 @@ export function GuidePage({ onImport }: Props) {
     setOkMsg(null)
     setFileName(name)
     try {
+      // 后台静默收 PDF（失败不影响同学导入）
+      storagePathRef.current = await uploadTimetablePdf(buf, name)
       const payload = await parseZfPdfBuffer(buf)
       askMetaThenImport(payload, name)
     } catch (e) {
@@ -103,7 +111,12 @@ export function GuidePage({ onImport }: Props) {
         raw.includes('课表')
           ? raw
           : `PDF 解析失败：${raw}`
-      trackImportFail({ message: msg, fileName: name })
+      trackImportFail({
+        message: msg,
+        fileName: name,
+        storagePath: storagePathRef.current,
+      })
+      storagePathRef.current = null
       setError(msg)
     } finally {
       parsingRef.current = false
@@ -137,7 +150,12 @@ export function GuidePage({ onImport }: Props) {
       setBusy(false)
       setOkMsg(null)
       const msg = e instanceof Error ? e.message : '读取 PDF 失败'
-      trackImportFail({ message: msg, fileName: file.name })
+      trackImportFail({
+        message: msg,
+        fileName: file.name,
+        storagePath: storagePathRef.current,
+      })
+      storagePathRef.current = null
       setError(msg)
     }
   }
