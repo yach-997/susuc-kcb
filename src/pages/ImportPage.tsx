@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { decodeImportPayload, summarizeCourses } from '../lib/storage'
+import { trackImportSuccess } from '../lib/telemetry'
 import type { TimetablePayload } from '../types'
 
 interface Props {
@@ -33,6 +34,10 @@ export function ImportPage({ onImport }: Props) {
     try {
       const payload = decodeImportPayload(encoded)
       onImport(payload)
+      trackImportSuccess({
+        courseCount: payload.courses.length,
+        via: 'link',
+      })
       setSummary(summarizeCourses(payload.courses).label)
       const t = window.setTimeout(() => navigate('/', { replace: true }), 1200)
       return () => window.clearTimeout(t)

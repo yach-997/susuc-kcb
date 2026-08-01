@@ -17,6 +17,7 @@ import { parseZfPdfBuffer } from '../lib/parsePdf'
 import { prefetchCriticalCmaps } from '../lib/pdfAssets'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import { normalizeTermLabel, summarizeCourses } from '../lib/storage'
+import { trackImportSuccess } from '../lib/telemetry'
 import type { TimetablePayload } from '../types'
 
 interface Props {
@@ -51,6 +52,10 @@ export function GuidePage({ onImport }: Props) {
   const finishImport = (payload: TimetablePayload, tip: string) => {
     clearImportDraft()
     onImport(payload)
+    trackImportSuccess({
+      courseCount: payload.courses.length,
+      termLabel: payload.termLabel || null,
+    })
     setPending(null)
     setError(null)
     setOkMsg(tip)
