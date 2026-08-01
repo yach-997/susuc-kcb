@@ -17,7 +17,7 @@ import { parseZfPdfBuffer } from '../lib/parsePdf'
 import { prefetchCriticalCmaps } from '../lib/pdfAssets'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import { normalizeTermLabel, summarizeCourses } from '../lib/storage'
-import { trackImportSuccess } from '../lib/telemetry'
+import { trackImportFail, trackImportSuccess } from '../lib/telemetry'
 import type { TimetablePayload } from '../types'
 
 interface Props {
@@ -103,6 +103,7 @@ export function GuidePage({ onImport }: Props) {
         raw.includes('课表')
           ? raw
           : `PDF 解析失败：${raw}`
+      trackImportFail({ message: msg, fileName: name })
       setError(msg)
     } finally {
       parsingRef.current = false
@@ -135,7 +136,9 @@ export function GuidePage({ onImport }: Props) {
       parsingRef.current = false
       setBusy(false)
       setOkMsg(null)
-      setError(e instanceof Error ? e.message : '读取 PDF 失败')
+      const msg = e instanceof Error ? e.message : '读取 PDF 失败'
+      trackImportFail({ message: msg, fileName: file.name })
+      setError(msg)
     }
   }
 

@@ -22,9 +22,23 @@ function formatTime(iso: string): string {
   }
 }
 
+function kindLabel(kind: string): string {
+  if (kind === 'import') return '导入成功'
+  if (kind === 'import_fail') return '解析失败'
+  return '打开页面'
+}
+
+function failMessage(meta: AdminStats['recentFails'][number]['meta']): string {
+  if (!meta || typeof meta !== 'object') return '未知原因'
+  const m = meta.message
+  if (typeof m === 'string' && m.trim()) return m
+  return '未知原因'
+}
+
 export function AdminPage() {
   const configured = isAdminConfigured()
   const [token, setToken] = useState<string | null>(() => readAdminToken())
+  const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -56,7 +70,7 @@ export function AdminPage() {
     setLoginError(null)
     setBusy(true)
     try {
-      const res = await adminLogin(password)
+      const res = await adminLogin(username, password)
       if (!res.ok) {
         setLoginError(res.error)
         return
@@ -104,6 +118,17 @@ export function AdminPage() {
         <p className="mt-1 text-sm text-muted">仅维护者登录，不在导航里展示。</p>
         <form onSubmit={onLogin} className="mt-6 space-y-3">
           <label className="block text-sm text-ink">
+            账号
+            <input
+              type="text"
+              autoComplete="username"
+              className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </label>
+          <label className="block text-sm text-ink">
             密码
             <input
               type="password"
@@ -134,7 +159,7 @@ export function AdminPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">管理后台</h1>
-          <p className="mt-1 text-sm text-muted">匿名用量统计（不含 PDF）</p>
+          <p className="mt-1 text-sm text-muted">匿名用量与解析失败（不含 PDF）</p>
         </div>
         <button
           type="button"
@@ -172,6 +197,8 @@ export function AdminPage() {
             ['近7日打开', stats.page7d],
             ['导入成功', stats.importTotal],
             ['近7日导入', stats.import7d],
+            ['解析失败', stats.failTotal],
+            ['近7日失败', stats.fail7d],
           ].map(([label, value]) => (
             <div
               key={String(label)}
@@ -186,6 +213,29 @@ export function AdminPage() {
         </div>
       )}
 
+      {stats && stats.recentFails.length > 0 && (
+        <section className="mt-5">
+          <h2 className="text-sm font-semibold text-ink">最近解析失败</h2>
+          <ul className="mt-2 divide-y divide-line rounded-2xl border border-line bg-white/90">
+            {stats.recentFails.map((ev, i) => (
+              <li key={`${ev.created_at}-f-${i}`} className="px-3 py-2.5 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 flex-1 break-words text-ink leading-relaxed">
+                    {failMessage(ev.meta)}
+                  </span>
+                  <span className="shrink-0 text-muted tabular-nums">
+                    {formatTime(ev.created_at)}
+                  </span>
+                </div>
+                {typeof ev.meta?.fileName === 'string' && ev.meta.fileName && (
+                  <div className="mt-1 text-muted">文件：{ev.meta.fileName}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {stats && stats.recent.length > 0 && (
         <section className="mt-5">
           <h2 className="text-sm font-semibold text-ink">最近动态</h2>
@@ -195,9 +245,7 @@ export function AdminPage() {
                 key={`${ev.created_at}-${i}`}
                 className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
               >
-                <span className="text-ink">
-                  {ev.kind === 'import' ? '导入成功' : '打开页面'}
-                </span>
+                <span className="text-ink">{kindLabel(ev.kind)}</span>
                 <span className="text-muted tabular-nums">
                   {formatTime(ev.created_at)}
                 </span>
@@ -221,13 +269,13 @@ export function AdminPage() {
             />
           </label>
           <label className="block text-xs text-muted">
-            新密码（至少 8 位）
+            新密码（至少 6 位）
             <input
               type="password"
               className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
-              minLength={8}
+              minLength={6}
               required
             />
           </label>

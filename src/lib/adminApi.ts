@@ -2,14 +2,24 @@ import { getSupabase, isSupabaseConfigured } from './supabase'
 
 const TOKEN_KEY = 'susuc-admin-token'
 
+export type AdminEvent = {
+  kind: string
+  visitor_id: string | null
+  created_at: string
+  meta?: { message?: string; fileName?: string; [k: string]: unknown } | null
+}
+
 export type AdminStats = {
   pageTotal: number
   importTotal: number
+  failTotal: number
   page7d: number
   import7d: number
+  fail7d: number
   visitors: number
   visitors7d: number
-  recent: { kind: string; visitor_id: string | null; created_at: string }[]
+  recent: AdminEvent[]
+  recentFails: AdminEvent[]
 }
 
 export function isAdminConfigured(): boolean {
@@ -40,14 +50,23 @@ function saveAdminToken(token: string) {
   }
 }
 
-export async function adminLogin(password: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function adminLogin(
+  username: string,
+  password: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const sb = getSupabase()
   if (!sb) return { ok: false, error: '未配置 Supabase' }
-  const { data, error } = await sb.rpc('admin_login', { p_password: password })
+  const { data, error } = await sb.rpc('admin_login', {
+    p_username: username.trim(),
+    p_password: password,
+  })
   if (error) return { ok: false, error: error.message }
   const row = data as { ok?: boolean; token?: string; error?: string } | null
   if (!row?.ok || !row.token) {
-    return { ok: false, error: row?.error === 'invalid_password' ? '密码错误' : '登录失败' }
+    return {
+      ok: false,
+      error: row?.error === 'invalid_password' ? '账号或密码错误' : '登录失败',
+    }
   }
   saveAdminToken(row.token)
   return { ok: true }
@@ -71,11 +90,14 @@ export async function fetchAdminStats(): Promise<
     stats: {
       pageTotal: Number(row.pageTotal) || 0,
       importTotal: Number(row.importTotal) || 0,
+      failTotal: Number(row.failTotal) || 0,
       page7d: Number(row.page7d) || 0,
       import7d: Number(row.import7d) || 0,
+      fail7d: Number(row.fail7d) || 0,
       visitors: Number(row.visitors) || 0,
       visitors7d: Number(row.visitors7d) || 0,
       recent: Array.isArray(row.recent) ? row.recent : [],
+      recentFails: Array.isArray(row.recentFails) ? row.recentFails : [],
     },
   }
 }
@@ -98,7 +120,7 @@ export async function adminChangePassword(
     const map: Record<string, string> = {
       unauthorized: '登录已过期，请重新登录',
       invalid_old_password: '旧密码不正确',
-      password_too_short: '新密码至少 8 位',
+      password_too_short: '新密码至少 6 位',
     }
     return { ok: false, error: map[row?.error || ''] || '修改失败' }
   }

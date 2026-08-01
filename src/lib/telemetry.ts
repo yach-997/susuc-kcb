@@ -26,7 +26,10 @@ export function getVisitorId(): string {
   }
 }
 
-async function track(kind: 'page' | 'import', meta?: Record<string, unknown>) {
+async function track(
+  kind: 'page' | 'import' | 'import_fail',
+  meta?: Record<string, unknown>,
+) {
   if (!isSupabaseConfigured()) return
   const sb = getSupabase()
   if (!sb) return
@@ -55,4 +58,9 @@ export function trackPageOpen() {
 
 export function trackImportSuccess(meta?: Record<string, unknown>) {
   void track('import', meta)
+}
+
+/** 解析/导入失败：记录原因，便于后台排查 */
+export function trackImportFail(meta?: Record<string, unknown>) {
+  void track('import_fail', meta)
 }
