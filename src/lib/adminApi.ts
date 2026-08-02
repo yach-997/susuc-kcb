@@ -1,5 +1,5 @@
+import { downloadPdfFile } from './pdfUpload'
 import { getSupabase, isSupabaseConfigured } from './supabase'
-import { createPdfDownloadUrl } from './pdfUpload'
 
 const TOKEN_KEY = 'susuc-admin-token'
 
@@ -39,6 +39,25 @@ export type DayReport = {
   imports: AdminEvent[]
   fails: AdminEvent[]
   events: AdminEvent[]
+}
+
+export type AdminVisitor = {
+  visitor_id: string
+  event_count: number
+  page_count: number
+  import_count: number
+  fail_count: number
+  first_seen: string
+  last_seen: string
+}
+
+export type FeedbackItem = {
+  id: number
+  visitor_id: string | null
+  content: string
+  contact: string | null
+  status: 'new' | 'read' | 'done' | string
+  created_at: string
 }
 
 export function isAdminConfigured(): boolean {
@@ -151,6 +170,136 @@ export async function fetchDayReport(
   }
 }
 
+export async function fetchAdminVisitors(): Promise<
+  | { ok: true; total: number; visitors: AdminVisitor[] }
+  | { ok: false; error: string }
+> {
+  const sb = getSupabase()
+  const token = readAdminToken()
+  if (!sb || !token) return { ok: false, error: 'unauthorized' }
+  const { data, error } = await sb.rpc('admin_visitors', {
+    p_token: token,
+    p_limit: 150,
+  })
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.message.includes('admin_visitors') ||
+        error.message.includes('Could not find')
+          ? '请先在 Supabase 执行 supabase/admin_ops.sql'
+          : error.message,
+    }
+  }
+  const row = data as {
+    ok?: boolean
+    error?: string
+    total?: number
+    visitors?: AdminVisitor[]
+  } | null
+  if (!row?.ok) {
+    if (row?.error === 'unauthorized') clearAdminToken()
+    return { ok: false, error: row?.error || '加载失败' }
+  }
+  return {
+    ok: true,
+    total: Number(row.total) || 0,
+    visitors: Array.isArray(row.visitors) ? row.visitors : [],
+  }
+}
+
+export async function fetchAdminFeedback(): Promise<
+  | { ok: true; newCount: number; items: FeedbackItem[] }
+  | { ok: false; error: string }
+> {
+  const sb = getSupabase()
+  const token = readAdminToken()
+  if (!sb || !token) return { ok: false, error: 'unauthorized' }
+  const { data, error } = await sb.rpc('admin_feedback_list', {
+    p_token: token,
+    p_limit: 100,
+  })
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.message.includes('admin_feedback') ||
+        error.message.includes('Could not find')
+          ? '请先在 Supabase 执行 supabase/admin_ops.sql'
+          : error.message,
+    }
+  }
+  const row = data as {
+    ok?: boolean
+    error?: string
+    newCount?: number
+    items?: FeedbackItem[]
+  } | null
+  if (!row?.ok) {
+    if (row?.error === 'unauthorized') clearAdminToken()
+    return { ok: false, error: row?.error || '加载失败' }
+  }
+  return {
+    ok: true,
+    newCount: Number(row.newCount) || 0,
+    items: Array.isArray(row.items) ? row.items : [],
+  }
+}
+
+export async function setFeedbackStatus(
+  id: number,
+  status: 'new' | 'read' | 'done',
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sb = getSupabase()
+  const token = readAdminToken()
+  if (!sb || !token) return { ok: false, error: 'unauthorized' }
+  const { data, error } = await sb.rpc('admin_feedback_set_status', {
+    p_token: token,
+    p_id: id,
+    p_status: status,
+  })
+  if (error) return { ok: false, error: error.message }
+  const row = data as { ok?: boolean; error?: string } | null
+  if (!row?.ok) {
+    if (row?.error === 'unauthorized') clearAdminToken()
+    return { ok: false, error: row?.error || '更新失败' }
+  }
+  return { ok: true }
+}
+
+export async function submitUserFeedback(
+  content: string,
+  contact?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sb = getSupabase()
+  if (!sb) return { ok: false, error: '服务暂不可用' }
+  const { getVisitorId } = await import('./telemetry')
+  const { data, error } = await sb.rpc('submit_feedback', {
+    p_visitor_id: getVisitorId(),
+    p_content: content,
+    p_contact: contact?.trim() || null,
+  })
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.message.includes('submit_feedback') ||
+        error.message.includes('Could not find')
+          ? '反馈通道未就绪，请稍后再试'
+          : error.message,
+    }
+  }
+  const row = data as { ok?: boolean; error?: string } | null
+  if (!row?.ok) {
+    const map: Record<string, string> = {
+      content_too_short: '请写得稍微具体一点（至少 2 个字）',
+      content_too_long: '内容太长了，请控制在 2000 字内',
+    }
+    return { ok: false, error: map[row?.error || ''] || '提交失败' }
+  }
+  return { ok: true }
+}
+
 export async function adminChangePassword(
   oldPassword: string,
   newPassword: string,
@@ -176,8 +325,14 @@ export async function adminChangePassword(
   return { ok: true }
 }
 
-export async function downloadEventPdf(ev: AdminEvent): Promise<string | null> {
+export async function downloadEventPdf(
+  ev: AdminEvent,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const path = ev.meta?.storagePath
-  if (typeof path !== 'string' || !path) return null
-  return createPdfDownloadUrl(path)
+  if (typeof path !== 'string' || !path) {
+    return { ok: false, error: '此条没有 PDF 附件（多为升级前的旧记录）' }
+  }
+  const fileName =
+    typeof ev.meta?.fileName === 'string' ? ev.meta.fileName : null
+  return downloadPdfFile(path, fileName)
 }

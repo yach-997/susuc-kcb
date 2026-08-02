@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AddToHomeButton } from '../components/AddToHomeButton'
 import { TermMetaForm } from '../components/TermMetaForm'
 import { APP_VERSION } from '../appVersion'
+import { submitUserFeedback } from '../lib/adminApi'
 import { clearImportDraft } from '../lib/importDraft'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import {
@@ -41,10 +42,34 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
   const [msg, setMsg] = useState<string | null>(null)
   const [editingTerm, setEditingTerm] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [fbContent, setFbContent] = useState('')
+  const [fbContact, setFbContact] = useState('')
+  const [fbBusy, setFbBusy] = useState(false)
+  const [fbMsg, setFbMsg] = useState<string | null>(null)
+  const [fbErr, setFbErr] = useState<string | null>(null)
 
   const flash = (text: string) => {
     setMsg(text)
     window.setTimeout(() => setMsg(null), 2000)
+  }
+
+  const onSubmitFeedback = async (e: FormEvent) => {
+    e.preventDefault()
+    setFbErr(null)
+    setFbMsg(null)
+    setFbBusy(true)
+    try {
+      const res = await submitUserFeedback(fbContent, fbContact)
+      if (!res.ok) {
+        setFbErr(res.error)
+        return
+      }
+      setFbContent('')
+      setFbContact('')
+      setFbMsg('已提交，我们会尽快查看，谢谢反馈')
+    } finally {
+      setFbBusy(false)
+    }
   }
 
   const handleHardRefresh = () => {
@@ -212,6 +237,41 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
         >
           {refreshing ? '正在清理…' : '清理缓存并刷新'}
         </button>
+      </section>
+
+      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
+        <h2 className="text-[0.95rem] font-semibold text-ink">使用问题反馈</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">
+          导入失败、显示异常等，写几句即可。匿名提交，后台可直接看到。
+        </p>
+        <form onSubmit={onSubmitFeedback} className="mt-3 space-y-2.5">
+          <textarea
+            value={fbContent}
+            onChange={(e) => setFbContent(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            required
+            placeholder="例如：某学院 PDF 识别不出课程…"
+            className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
+          />
+          <input
+            type="text"
+            value={fbContact}
+            onChange={(e) => setFbContact(e.target.value)}
+            maxLength={120}
+            placeholder="选填：QQ / 微信号，方便回访"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
+          />
+          {fbErr && <p className="text-sm text-expired">{fbErr}</p>}
+          {fbMsg && <p className="text-sm text-brand-dark">{fbMsg}</p>}
+          <button
+            type="submit"
+            disabled={fbBusy || !fbContent.trim()}
+            className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {fbBusy ? '提交中…' : '提交反馈'}
+          </button>
+        </form>
       </section>
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4">

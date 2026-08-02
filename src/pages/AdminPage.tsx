@@ -1,19 +1,33 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react'
 import {
   adminChangePassword,
   adminLogin,
   clearAdminToken,
   downloadEventPdf,
+  fetchAdminFeedback,
   fetchAdminStats,
+  fetchAdminVisitors,
   fetchDayReport,
   isAdminConfigured,
   readAdminToken,
+  setFeedbackStatus,
   type AdminEvent,
   type AdminStats,
+  type AdminVisitor,
   type DayReport,
+  type FeedbackItem,
 } from '../lib/adminApi'
+import { anonVisitorLabel } from '../lib/anonId'
 
-type TabKey = 'fails' | 'imports' | 'all'
+type Section = 'daily' | 'users' | 'feedback' | 'account'
+type DayTab = 'fails' | 'imports' | 'all'
 
 function todayLocal(): string {
   const d = new Date()
@@ -52,6 +66,19 @@ function formatTime(iso: string): string {
   }
 }
 
+function formatDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('zh-CN', {
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
+}
+
 function kindLabel(kind: string): string {
   if (kind === 'import') return '导入成功'
   if (kind === 'import_fail') return '解析失败'
@@ -71,17 +98,9 @@ function failMessage(meta: AdminEvent['meta']): string {
   return '未知原因'
 }
 
-function hasPdf(ev: AdminEvent): boolean {
-  return typeof ev.meta?.storagePath === 'string' && !!ev.meta.storagePath
-}
-
-async function openPdf(ev: AdminEvent): Promise<void> {
-  const url = await downloadEventPdf(ev)
-  if (!url) {
-    window.alert('暂无 PDF 或链接已失效（需先执行 admin_uploads.sql）')
-    return
-  }
-  window.open(url, '_blank', 'noopener,noreferrer')
+function storagePathOf(ev: AdminEvent): string | null {
+  const p = ev.meta?.storagePath
+  return typeof p === 'string' && p ? p : null
 }
 
 function EventRow({
@@ -92,59 +111,170 @@ function EventRow({
   showDetail?: boolean
 }) {
   const [busy, setBusy] = useState(false)
+  const [tip, setTip] = useState<string | null>(null)
   const fileName =
     typeof ev.meta?.fileName === 'string' ? ev.meta.fileName : null
   const courseCount =
     typeof ev.meta?.courseCount === 'number' ? ev.meta.courseCount : null
   const termLabel =
     typeof ev.meta?.termLabel === 'string' ? ev.meta.termLabel : null
+  const path = storagePathOf(ev)
+  const canDownload =
+    (ev.kind === 'import' || ev.kind === 'import_fail') && !!path
 
   return (
     <li className="px-3.5 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${kindTone(ev.kind)}`}
-            >
-              {kindLabel(ev.kind)}
-            </span>
-            <span className="text-[11px] tabular-nums text-muted">
-              {formatTime(ev.created_at)}
-            </span>
-          </div>
-          {showDetail && ev.kind === 'import_fail' && (
-            <p className="mt-1.5 text-sm leading-relaxed text-ink">
-              {failMessage(ev.meta)}
-            </p>
-          )}
-          {showDetail && ev.kind === 'import' && (
-            <p className="mt-1.5 text-sm text-ink">
-              {courseCount != null ? `${courseCount} 门课` : '导入成功'}
-              {termLabel ? ` · ${termLabel}` : ''}
-            </p>
-          )}
-          {fileName && (
-            <p className="mt-1 truncate text-xs text-muted" title={fileName}>
-              {fileName}
-            </p>
-          )}
-        </div>
-        {hasPdf(ev) && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true)
-              void openPdf(ev).finally(() => setBusy(false))
-            }}
-            className="shrink-0 rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-ink/90 disabled:opacity-50"
-          >
-            {busy ? '…' : '下载 PDF'}
-          </button>
-        )}
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${kindTone(ev.kind)}`}
+        >
+          {kindLabel(ev.kind)}
+        </span>
+        <span className="text-[11px] tabular-nums text-muted">
+          {formatTime(ev.created_at)}
+        </span>
+        <span className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] text-muted">
+          {anonVisitorLabel(ev.visitor_id)}
+        </span>
       </div>
+      {showDetail && ev.kind === 'import_fail' && (
+        <p className="mt-1.5 text-sm leading-relaxed text-ink">
+          {failMessage(ev.meta)}
+        </p>
+      )}
+      {showDetail && ev.kind === 'import' && (
+        <p className="mt-1.5 text-sm text-ink">
+          {courseCount != null ? `${courseCount} 门课` : '导入成功'}
+          {termLabel ? ` · ${termLabel}` : ''}
+        </p>
+      )}
+      {fileName && (
+        <p className="mt-1 break-all text-xs text-muted" title={fileName}>
+          {fileName}
+        </p>
+      )}
+      {(ev.kind === 'import' || ev.kind === 'import_fail') && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {canDownload ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true)
+                setTip(null)
+                void downloadEventPdf(ev).then((res) => {
+                  setBusy(false)
+                  if (!res.ok) setTip(res.error)
+                })
+              }}
+              className="rounded-lg bg-ink px-3 py-1.5 text-[11px] font-medium text-white transition active:opacity-80 disabled:opacity-50"
+            >
+              {busy ? '准备中…' : '下载 PDF'}
+            </button>
+          ) : (
+            <span className="rounded-lg bg-surface px-2.5 py-1.5 text-[11px] text-muted">
+              无 PDF 附件
+            </span>
+          )}
+          {tip && <span className="text-[11px] text-rose-600">{tip}</span>}
+        </div>
+      )}
     </li>
+  )
+}
+
+function DatePickerCard({
+  day,
+  onChange,
+  onRefresh,
+}: {
+  day: string
+  onChange: (d: string) => void
+  onRefresh: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const isToday = day === todayLocal()
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-3xl border border-line/80 bg-white/90 p-3 shadow-[0_10px_36px_-28px_rgba(20,35,30,0.5)]">
+      <div className="flex items-stretch gap-2">
+        <button
+          type="button"
+          aria-label="前一天"
+          className="flex h-12 w-11 shrink-0 items-center justify-center rounded-2xl border border-line text-lg text-ink"
+          onClick={() => onChange(shiftDay(day, -1))}
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          className="relative min-w-0 flex-1 rounded-2xl bg-surface px-2 py-2 text-center"
+          onClick={() => {
+            const el = inputRef.current
+            if (!el) return
+            try {
+              el.showPicker?.()
+            } catch {
+              /* ignore */
+            }
+            el.focus()
+            el.click()
+          }}
+        >
+          <div className="truncate text-sm font-semibold text-ink">
+            {formatDayLabel(day)}
+          </div>
+          <div className="mt-0.5 text-[11px] tabular-nums text-muted">
+            {day.replace(/-/g, '/')} · 点此选日期
+          </div>
+          <input
+            ref={inputRef}
+            type="date"
+            value={day}
+            max={todayLocal()}
+            onChange={(e) => {
+              if (e.target.value) onChange(e.target.value)
+            }}
+            className="absolute inset-0 cursor-pointer opacity-0"
+            aria-label="选择日期"
+          />
+        </button>
+        <button
+          type="button"
+          aria-label="后一天"
+          disabled={day >= todayLocal()}
+          className="flex h-12 w-11 shrink-0 items-center justify-center rounded-2xl border border-line text-lg text-ink disabled:opacity-35"
+          onClick={() => onChange(shiftDay(day, 1))}
+        >
+          ›
+        </button>
+      </div>
+      <div className="mt-2.5 grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(todayLocal())}
+          className={`rounded-full py-1.5 text-[11px] font-medium ${
+            isToday ? 'bg-brand/12 text-brand' : 'bg-surface text-muted'
+          }`}
+        >
+          今天
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(shiftDay(todayLocal(), -1))}
+          className="rounded-full bg-surface py-1.5 text-[11px] font-medium text-muted"
+        >
+          昨天
+        </button>
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="rounded-full border border-line py-1.5 text-[11px] font-medium text-ink"
+        >
+          刷新
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -155,13 +285,24 @@ export function AdminPage() {
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [section, setSection] = useState<Section>('daily')
+
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [statsError, setStatsError] = useState<string | null>(null)
   const [day, setDay] = useState(todayLocal)
   const [report, setReport] = useState<DayReport | null>(null)
   const [reportError, setReportError] = useState<string | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
-  const [tab, setTab] = useState<TabKey>('fails')
+  const [dayTab, setDayTab] = useState<DayTab>('fails')
+
+  const [visitors, setVisitors] = useState<AdminVisitor[]>([])
+  const [visitorTotal, setVisitorTotal] = useState(0)
+  const [visitorError, setVisitorError] = useState<string | null>(null)
+
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([])
+  const [feedbackNew, setFeedbackNew] = useState(0)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
+
   const [oldPw, setOldPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [pwMsg, setPwMsg] = useState<string | null>(null)
@@ -202,22 +343,59 @@ export function AdminPage() {
     }
   }, [])
 
+  const loadVisitors = useCallback(async () => {
+    setVisitorError(null)
+    const res = await fetchAdminVisitors()
+    if (!res.ok) {
+      if (res.error === 'unauthorized') setToken(null)
+      setVisitorError(res.error)
+      setVisitors([])
+      return
+    }
+    setVisitors(res.visitors)
+    setVisitorTotal(res.total)
+  }, [])
+
+  const loadFeedback = useCallback(async () => {
+    setFeedbackError(null)
+    const res = await fetchAdminFeedback()
+    if (!res.ok) {
+      if (res.error === 'unauthorized') setToken(null)
+      setFeedbackError(res.error)
+      setFeedback([])
+      return
+    }
+    setFeedback(res.items)
+    setFeedbackNew(res.newCount)
+  }, [])
+
   useEffect(() => {
     if (!token) return
     void loadStats()
-  }, [token, loadStats])
+    void loadFeedback()
+  }, [token, loadStats, loadFeedback])
 
   useEffect(() => {
-    if (!token) return
+    if (!token || section !== 'daily') return
     void loadDay(day)
-  }, [token, day, loadDay])
+  }, [token, section, day, loadDay])
+
+  useEffect(() => {
+    if (!token || section !== 'users') return
+    void loadVisitors()
+  }, [token, section, loadVisitors])
+
+  useEffect(() => {
+    if (!token || section !== 'feedback') return
+    void loadFeedback()
+  }, [token, section, loadFeedback])
 
   const list = useMemo(() => {
     if (!report) return [] as AdminEvent[]
-    if (tab === 'fails') return report.fails
-    if (tab === 'imports') return report.imports
+    if (dayTab === 'fails') return report.fails
+    if (dayTab === 'imports') return report.imports
     return report.events
-  }, [report, tab])
+  }, [report, dayTab])
 
   const onLogin = async (e: FormEvent) => {
     e.preventDefault()
@@ -276,21 +454,23 @@ export function AdminPage() {
           }}
         />
         <div className="relative mx-auto w-full max-w-sm">
-          <p className="text-xs font-medium tracking-wide text-brand">SUSUC · ADMIN</p>
+          <p className="text-xs font-medium tracking-wide text-brand">
+            SUSUC · ADMIN
+          </p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink">
             管理后台
           </h1>
           <p className="mt-2 text-sm text-muted">仅维护者登录，不在导航展示。</p>
           <form
             onSubmit={onLogin}
-            className="mt-8 space-y-3 rounded-3xl border border-line/80 bg-white/90 p-5 shadow-[0_12px_40px_-24px_rgba(20,35,30,0.45)] backdrop-blur"
+            className="mt-8 space-y-3 rounded-3xl border border-line/80 bg-white/90 p-5 shadow-[0_12px_40px_-24px_rgba(20,35,30,0.45)]"
           >
             <label className="block text-sm text-ink">
               账号
               <input
                 type="text"
                 autoComplete="username"
-                className="mt-1.5 w-full rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                className="mt-1.5 w-full rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none focus:border-brand"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -301,7 +481,7 @@ export function AdminPage() {
               <input
                 type="password"
                 autoComplete="current-password"
-                className="mt-1.5 w-full rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                className="mt-1.5 w-full rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none focus:border-brand"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -311,7 +491,7 @@ export function AdminPage() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-2xl bg-brand py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60"
+              className="w-full rounded-2xl bg-brand py-3 text-sm font-semibold text-white disabled:opacity-60"
             >
               {busy ? '登录中…' : '进入后台'}
             </button>
@@ -333,17 +513,17 @@ export function AdminPage() {
 
       <div className="relative px-4 pt-5">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-medium tracking-[0.14em] text-brand">
-              DAILY OPS
+              OPS
             </p>
             <h1 className="mt-1 font-display text-2xl font-bold text-ink">
-              每日情况
+              管理后台
             </h1>
           </div>
           <button
             type="button"
-            className="rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs text-muted backdrop-blur transition hover:text-ink"
+            className="shrink-0 rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs text-muted"
             onClick={() => {
               clearAdminToken()
               setToken(null)
@@ -355,228 +535,357 @@ export function AdminPage() {
           </button>
         </div>
 
-        {/* 日期选择 */}
-        <div className="mt-5 rounded-3xl border border-line/80 bg-white/90 p-3.5 shadow-[0_10px_36px_-28px_rgba(20,35,30,0.5)] backdrop-blur">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="前一天"
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line text-ink transition hover:bg-surface"
-              onClick={() => setDay((d) => shiftDay(d, -1))}
-            >
-              ‹
-            </button>
-            <div className="min-w-0 flex-1 text-center">
-              <div className="text-sm font-semibold text-ink">
-                {formatDayLabel(day)}
-              </div>
-              <input
-                type="date"
-                value={day}
-                max={todayLocal()}
-                onChange={(e) => {
-                  if (e.target.value) setDay(e.target.value)
-                }}
-                className="mt-1 w-full max-w-[11rem] rounded-lg border-0 bg-transparent text-center text-xs text-muted outline-none"
-              />
-            </div>
-            <button
-              type="button"
-              aria-label="后一天"
-              disabled={day >= todayLocal()}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line text-ink transition hover:bg-surface disabled:opacity-35"
-              onClick={() => setDay((d) => shiftDay(d, 1))}
-            >
-              ›
-            </button>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setDay(todayLocal())}
-              className="rounded-full bg-brand/10 px-3 py-1 text-[11px] font-medium text-brand"
-            >
-              今天
-            </button>
-            <button
-              type="button"
-              onClick={() => setDay((d) => shiftDay(d, -1))}
-              className="rounded-full bg-surface px-3 py-1 text-[11px] font-medium text-muted"
-            >
-              昨天
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void loadStats()
-                void loadDay(day)
-              }}
-              className="rounded-full border border-line px-3 py-1 text-[11px] font-medium text-ink"
-            >
-              刷新
-            </button>
-          </div>
-        </div>
-
-        {reportError && (
-          <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {reportError}
-          </p>
-        )}
-        {statsError && !reportError && (
-          <p className="mt-3 text-sm text-rose-600">{statsError}</p>
-        )}
-
-        {/* 当日指标 */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {[
-            {
-              label: '打开',
-              value: report?.pageCount,
-              accent: 'from-slate-50 to-white',
-            },
-            {
-              label: '成功',
-              value: report?.importCount,
-              accent: 'from-emerald-50 to-white',
-            },
-            {
-              label: '失败',
-              value: report?.failCount,
-              accent: 'from-rose-50 to-white',
-            },
-          ].map((c) => (
-            <div
-              key={c.label}
-              className={`rounded-2xl border border-line/70 bg-gradient-to-b ${c.accent} px-3 py-3`}
-            >
-              <div className="text-[11px] text-muted">{c.label}</div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-ink">
-                {reportLoading && report == null ? '—' : (c.value ?? 0)}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 分类 Tab */}
-        <div className="mt-5 flex gap-1 rounded-2xl bg-surface p-1">
+        <nav className="mt-4 grid grid-cols-4 gap-1 rounded-2xl bg-surface p-1">
           {(
             [
-              ['fails', '解析失败', report?.failCount],
-              ['imports', '解析成功', report?.importCount],
-              ['all', '全部动态', report?.events.length],
+              ['daily', '每日'],
+              ['users', '用户'],
+              ['feedback', '反馈'],
+              ['account', '账号'],
             ] as const
-          ).map(([key, label, count]) => (
+          ).map(([key, label]) => (
             <button
               key={key}
               type="button"
-              onClick={() => setTab(key)}
-              className={`flex-1 rounded-xl px-2 py-2 text-xs font-medium transition ${
-                tab === key
+              onClick={() => setSection(key)}
+              className={`relative rounded-xl px-1 py-2 text-xs font-medium transition ${
+                section === key
                   ? 'bg-white text-ink shadow-sm'
-                  : 'text-muted hover:text-ink'
+                  : 'text-muted'
               }`}
             >
               {label}
-              <span className="ml-1 tabular-nums opacity-70">
-                {count ?? 0}
-              </span>
+              {key === 'feedback' && feedbackNew > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 min-w-[1rem] rounded-full bg-rose-500 px-1 text-[10px] leading-4 text-white">
+                  {feedbackNew > 9 ? '9+' : feedbackNew}
+                </span>
+              )}
             </button>
           ))}
-        </div>
+        </nav>
 
-        <section className="mt-3 overflow-hidden rounded-3xl border border-line/80 bg-white/95 shadow-[0_10px_36px_-28px_rgba(20,35,30,0.45)]">
-          {reportLoading && !report ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">加载中…</p>
-          ) : list.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
-              这一天暂无
-              {tab === 'fails' ? '解析失败' : tab === 'imports' ? '解析成功' : '动态'}
-            </p>
-          ) : (
-            <ul className="divide-y divide-line/70">
-              {list.map((ev, i) => (
-                <EventRow
-                  key={`${ev.id ?? ev.created_at}-${i}`}
-                  ev={ev}
-                  showDetail={tab !== 'all' || ev.kind !== 'page'}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
+        {section === 'daily' && (
+          <>
+            <DatePickerCard
+              day={day}
+              onChange={setDay}
+              onRefresh={() => {
+                void loadStats()
+                void loadDay(day)
+              }}
+            />
 
-        {/* 累计概览 */}
-        {stats && (
-          <section className="mt-6">
-            <h2 className="text-sm font-semibold text-ink">累计概览</h2>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            {reportError && (
+              <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {reportError}
+              </p>
+            )}
+            {statsError && !reportError && (
+              <p className="mt-3 text-sm text-rose-600">{statsError}</p>
+            )}
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
               {[
-                ['独立访客', stats.visitors],
-                ['近7日访客', stats.visitors7d],
-                ['累计打开', stats.pageTotal],
-                ['近7日打开', stats.page7d],
-                ['累计成功', stats.importTotal],
-                ['近7日成功', stats.import7d],
-                ['累计失败', stats.failTotal],
-                ['近7日失败', stats.fail7d],
-              ].map(([label, value]) => (
+                ['打开', report?.pageCount, 'from-slate-50 to-white'],
+                ['成功', report?.importCount, 'from-emerald-50 to-white'],
+                ['失败', report?.failCount, 'from-rose-50 to-white'],
+              ].map(([label, value, accent]) => (
                 <div
                   key={String(label)}
-                  className="rounded-2xl border border-line/70 bg-white/80 px-3 py-2.5"
+                  className={`rounded-2xl border border-line/70 bg-gradient-to-b ${accent} px-3 py-3`}
                 >
                   <div className="text-[11px] text-muted">{label}</div>
-                  <div className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
-                    {Number(value).toLocaleString('zh-CN')}
+                  <div className="mt-1 text-2xl font-semibold tabular-nums text-ink">
+                    {reportLoading && report == null ? '—' : Number(value ?? 0)}
                   </div>
                 </div>
               ))}
             </div>
+
+            <div className="mt-5 flex gap-1 rounded-2xl bg-surface p-1">
+              {(
+                [
+                  ['fails', '解析失败', report?.failCount],
+                  ['imports', '解析成功', report?.importCount],
+                  ['all', '全部动态', report?.events.length],
+                ] as const
+              ).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setDayTab(key)}
+                  className={`min-w-0 flex-1 rounded-xl px-1.5 py-2 text-[11px] font-medium transition ${
+                    dayTab === key
+                      ? 'bg-white text-ink shadow-sm'
+                      : 'text-muted'
+                  }`}
+                >
+                  <span className="block truncate">{label}</span>
+                  <span className="tabular-nums opacity-70">{count ?? 0}</span>
+                </button>
+              ))}
+            </div>
+
+            <section className="mt-3 overflow-hidden rounded-3xl border border-line/80 bg-white/95">
+              {reportLoading && !report ? (
+                <p className="px-4 py-10 text-center text-sm text-muted">
+                  加载中…
+                </p>
+              ) : list.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-muted">
+                  这一天暂无
+                  {dayTab === 'fails'
+                    ? '解析失败'
+                    : dayTab === 'imports'
+                      ? '解析成功'
+                      : '动态'}
+                </p>
+              ) : (
+                <ul className="divide-y divide-line/70">
+                  {list.map((ev, i) => (
+                    <EventRow
+                      key={`${ev.id ?? ev.created_at}-${i}`}
+                      ev={ev}
+                      showDetail={dayTab !== 'all' || ev.kind !== 'page'}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {stats && (
+              <section className="mt-6">
+                <h2 className="text-sm font-semibold text-ink">累计概览</h2>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {[
+                    ['独立访客', stats.visitors],
+                    ['近7日访客', stats.visitors7d],
+                    ['累计成功', stats.importTotal],
+                    ['累计失败', stats.failTotal],
+                  ].map(([label, value]) => (
+                    <div
+                      key={String(label)}
+                      className="rounded-2xl border border-line/70 bg-white/80 px-3 py-2.5"
+                    >
+                      <div className="text-[11px] text-muted">{label}</div>
+                      <div className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
+                        {Number(value).toLocaleString('zh-CN')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        {section === 'users' && (
+          <section className="mt-4">
+            <div className="rounded-3xl border border-line/80 bg-white/95 p-4">
+              <p className="text-xs text-muted">匿名访客（设备随机 ID）</p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-ink">
+                {visitorTotal}
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                显示为稳定匿名号（如 访客·A3F2），不暴露真实标识；同一设备始终同一号，便于对照失败记录。
+              </p>
+            </div>
+            {visitorError && (
+              <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {visitorError}
+              </p>
+            )}
+            <ul className="mt-3 divide-y divide-line/70 overflow-hidden rounded-3xl border border-line/80 bg-white/95">
+              {visitors.length === 0 && !visitorError ? (
+                <li className="px-4 py-10 text-center text-sm text-muted">
+                  暂无访客数据
+                </li>
+              ) : (
+                visitors.map((v) => (
+                  <li key={v.visitor_id} className="px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-ink">
+                        {anonVisitorLabel(v.visitor_id)}
+                      </span>
+                      <span className="text-[11px] tabular-nums text-muted">
+                        {formatDateTime(v.last_seen)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px] text-muted">
+                      <span className="rounded-md bg-surface px-1.5 py-0.5">
+                        打开 {v.page_count}
+                      </span>
+                      <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-emerald-800">
+                        成功 {v.import_count}
+                      </span>
+                      <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-rose-800">
+                        失败 {v.fail_count}
+                      </span>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
           </section>
         )}
 
-        <section className="mt-6 rounded-3xl border border-line/80 bg-white/90 p-4">
-          <h2 className="text-sm font-semibold text-ink">修改密码</h2>
-          <form onSubmit={onChangePw} className="mt-3 space-y-3">
-            <label className="block text-xs text-muted">
-              旧密码
-              <input
-                type="password"
-                className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
-                value={oldPw}
-                onChange={(e) => setOldPw(e.target.value)}
-                required
-              />
-            </label>
-            <label className="block text-xs text-muted">
-              新密码（至少 6 位）
-              <input
-                type="password"
-                className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
-                value={newPw}
-                onChange={(e) => setNewPw(e.target.value)}
-                minLength={6}
-                required
-              />
-            </label>
-            {pwMsg && (
-              <p
-                className={`text-sm ${
-                  pwMsg === '密码已更新' ? 'text-brand' : 'text-rose-600'
-                }`}
+        {section === 'feedback' && (
+          <section className="mt-4">
+            <div className="rounded-3xl border border-line/80 bg-white/95 p-4">
+              <p className="text-xs text-muted">待处理反馈</p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-ink">
+                {feedbackNew}
+              </p>
+              <p className="mt-1 text-[11px] text-muted">
+                来自设置页「使用问题反馈」，可直接在此闭环处理。
+              </p>
+              <button
+                type="button"
+                onClick={() => void loadFeedback()}
+                className="mt-3 rounded-full border border-line px-3 py-1 text-[11px] font-medium text-ink"
               >
-                {pwMsg}
+                刷新
+              </button>
+            </div>
+            {feedbackError && (
+              <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {feedbackError}
               </p>
             )}
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              保存新密码
-            </button>
-          </form>
-        </section>
+            <ul className="mt-3 space-y-2">
+              {feedback.length === 0 && !feedbackError ? (
+                <li className="rounded-3xl border border-line/80 bg-white px-4 py-10 text-center text-sm text-muted">
+                  暂无反馈
+                </li>
+              ) : (
+                feedback.map((item) => (
+                  <li
+                    key={item.id}
+                    className="rounded-3xl border border-line/80 bg-white/95 px-3.5 py-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                          item.status === 'new'
+                            ? 'bg-rose-50 text-rose-700'
+                            : item.status === 'done'
+                              ? 'bg-emerald-50 text-emerald-800'
+                              : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {item.status === 'new'
+                          ? '新'
+                          : item.status === 'done'
+                            ? '已完成'
+                            : '已读'}
+                      </span>
+                      <span className="text-[11px] text-muted">
+                        {anonVisitorLabel(item.visitor_id)}
+                      </span>
+                      <span className="text-[11px] tabular-nums text-muted">
+                        {formatDateTime(item.created_at)}
+                      </span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink">
+                      {item.content}
+                    </p>
+                    {item.contact && (
+                      <p className="mt-1 text-xs text-muted">
+                        联系：{item.contact}
+                      </p>
+                    )}
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {item.status === 'new' && (
+                        <button
+                          type="button"
+                          className="rounded-lg border border-line px-2.5 py-1 text-[11px] text-ink"
+                          onClick={() => {
+                            void setFeedbackStatus(item.id, 'read').then(() =>
+                              loadFeedback(),
+                            )
+                          }}
+                        >
+                          标为已读
+                        </button>
+                      )}
+                      {item.status !== 'done' && (
+                        <button
+                          type="button"
+                          className="rounded-lg bg-brand px-2.5 py-1 text-[11px] font-medium text-white"
+                          onClick={() => {
+                            void setFeedbackStatus(item.id, 'done').then(() =>
+                              loadFeedback(),
+                            )
+                          }}
+                        >
+                          处理完成
+                        </button>
+                      )}
+                      {item.status === 'done' && (
+                        <button
+                          type="button"
+                          className="rounded-lg border border-line px-2.5 py-1 text-[11px] text-muted"
+                          onClick={() => {
+                            void setFeedbackStatus(item.id, 'new').then(() =>
+                              loadFeedback(),
+                            )
+                          }}
+                        >
+                          重开
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
+        )}
+
+        {section === 'account' && (
+          <section className="mt-4 rounded-3xl border border-line/80 bg-white/90 p-4">
+            <h2 className="text-sm font-semibold text-ink">修改密码</h2>
+            <form onSubmit={onChangePw} className="mt-3 space-y-3">
+              <label className="block text-xs text-muted">
+                旧密码
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+                  value={oldPw}
+                  onChange={(e) => setOldPw(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="block text-xs text-muted">
+                新密码（至少 6 位）
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  minLength={6}
+                  required
+                />
+              </label>
+              {pwMsg && (
+                <p
+                  className={`text-sm ${
+                    pwMsg === '密码已更新' ? 'text-brand' : 'text-rose-600'
+                  }`}
+                >
+                  {pwMsg}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={busy}
+                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                保存新密码
+              </button>
+            </form>
+          </section>
+        )}
       </div>
     </div>
   )
