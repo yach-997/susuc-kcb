@@ -114,7 +114,7 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex gap-1 overflow-x-auto px-2.5 pb-1.5 pt-1 scrollbar-none">
+      <div className="flex gap-0.5 overflow-x-auto px-2 pb-1 pt-1 scrollbar-none">
         {Array.from({ length: maxWeek }, (_, i) => i + 1).map((w) => {
           const active = viewWeek === w
           const isNow = suggestedWeek === w
@@ -123,12 +123,12 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
               key={w}
               type="button"
               onClick={() => setViewWeek(w)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              className={`shrink-0 px-2.5 py-1.5 text-sm font-semibold transition ${
                 active
-                  ? 'bg-brand text-white'
+                  ? 'border-b-2 border-brand text-brand'
                   : isNow
-                    ? 'bg-brand-soft text-brand-dark'
-                    : 'bg-white text-muted border border-line/80'
+                    ? 'text-brand-dark'
+                    : 'text-muted'
               }`}
             >
               {w}周
@@ -137,13 +137,13 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
         })}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
+      <div className="min-h-0 flex-1 overflow-auto px-1.5 pb-2">
         <div
-          className="mx-auto min-w-[22rem] overflow-hidden rounded-2xl border border-line/80 bg-white shadow-sm"
+          className="mx-auto min-w-[22rem] rounded-xl border border-line/80 bg-white/55 shadow-sm backdrop-blur-[2px]"
           style={{
             display: 'grid',
-            gridTemplateColumns: '2.7rem repeat(7, minmax(2.75rem, 1fr))',
-            gridTemplateRows: `2.75rem repeat(${lastRow - 1}, minmax(3rem, auto))`,
+            gridTemplateColumns: '2.55rem repeat(7, minmax(2.7rem, 1fr))',
+            gridTemplateRows: `2.6rem repeat(${lastRow - 1}, minmax(2.85rem, auto))`,
           }}
         >
           <div
@@ -162,11 +162,11 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
                 }`}
                 style={{ gridColumn: day + 1, gridRow: 1 }}
               >
-                <span className="text-[0.65rem] text-muted">{dateLabels[i]}</span>
+                <span className="text-[0.58rem] text-muted">{dateLabels[i]}</span>
                 <span
-                  className={`mt-0.5 text-[0.8rem] font-bold ${
+                  className={`mt-0.5 text-[0.72rem] font-bold ${
                     isToday
-                      ? 'rounded-full bg-brand px-2 py-0.5 text-white'
+                      ? 'rounded-full bg-brand px-1.5 py-0.5 text-white'
                       : 'text-ink'
                   }`}
                 >
@@ -179,7 +179,7 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
           {showLunch && (
             <>
               <div
-                className="sticky left-0 z-20 flex items-center justify-center border-b border-r border-line/50 bg-amber-50 text-[0.65rem] font-semibold text-amber-800"
+                className="sticky left-0 z-20 flex items-center justify-center border-b border-r border-line/50 bg-amber-50 text-[0.58rem] font-semibold text-amber-800"
                 style={{ gridColumn: 1, gridRow: lunchRow }}
               >
                 午休
@@ -206,9 +206,9 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
                   className="sticky left-0 z-20 flex flex-col items-center justify-center border-b border-r border-line/50 bg-[#f3f7f5]/95 px-0.5"
                   style={{ gridColumn: 1, gridRow: row }}
                 >
-                  <span className="text-[0.8rem] font-bold text-ink">{sec}</span>
-                  <span className="text-[0.55rem] leading-none text-muted">{start}</span>
-                  <span className="text-[0.55rem] leading-none text-muted">{end}</span>
+                  <span className="text-[0.72rem] font-bold text-ink">{sec}</span>
+                  <span className="text-[0.48rem] leading-none text-muted">{start}</span>
+                  <span className="text-[0.48rem] leading-none text-muted">{end}</span>
                 </div>
                 {WEEKDAY_LABELS.map((_, i) => (
                   <div
@@ -237,7 +237,7 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
             const color = courseColor(course.name)
             const clickable = course.source === 'manual' && onCourseClick
             const className =
-              'z-10 m-[3px] flex flex-col items-center justify-center overflow-hidden rounded-lg px-1 py-1 text-center text-white shadow-sm'
+              'z-10 m-[3px] flex flex-col items-center justify-center overflow-hidden rounded-md px-1 py-1 text-center text-white shadow-sm'
             const style = {
               gridColumn: course.weekday + 1,
               gridRow: `${rowStart} / ${rowEnd}`,
@@ -245,14 +245,14 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
             } as const
             const body = (
               <>
-                <div className="text-[0.7rem] font-bold leading-snug break-all">
+                <div className="text-[0.62rem] font-bold leading-snug break-all">
                   {course.name}
                 </div>
-                <div className="mt-0.5 text-[0.58rem] leading-tight opacity-95 break-all">
+                <div className="mt-0.5 text-[0.52rem] leading-tight opacity-95 break-all">
                   {course.room}
                 </div>
                 {course.source === 'manual' && (
-                  <div className="mt-0.5 text-[0.55rem] opacity-90">自加</div>
+                  <div className="mt-0.5 text-[0.48rem] opacity-90">自加</div>
                 )}
               </>
             )
@@ -274,9 +274,10 @@ export function WeekView({ courses, suggestedWeek, termStart, onCourseClick }: P
           })}
         </div>
 
-        <p className="mt-2.5 text-center text-sm text-muted">
+        <p className="mt-2 text-center text-[0.65rem] text-muted">
           第 {viewWeek} 周
           {viewingRealToday ? ' · 含今天' : ''}
+          {' · 点击上方周数可切换'}
         </p>
       </div>
     </div>

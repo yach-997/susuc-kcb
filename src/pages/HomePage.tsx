@@ -20,31 +20,6 @@ interface Props {
   onUpdate?: (payload: TimetablePayload) => void
 }
 
-function ExtraCourses({ courses }: { courses: Course[] }) {
-  if (courses.length === 0) return null
-  return (
-    <section className="mx-3.5 mb-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-3.5">
-      <h2 className="text-sm font-semibold text-ink">实践 / 其他</h2>
-      <p className="mt-0.5 text-xs text-muted">
-        无固定星期节次，不进入课表格。
-      </p>
-      <ul className="mt-2.5 space-y-2">
-        {courses.map((c) => (
-          <li
-            key={c.id}
-            className="rounded-xl border border-amber-100 bg-white px-3 py-2.5"
-          >
-            <p className="text-[15px] font-medium text-ink">{c.name}</p>
-            <p className="mt-1 text-sm text-muted">
-              {[c.teacher, `${c.weeks}周`, c.room].filter(Boolean).join(' · ')}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
 export function HomePage({ data, onUpdate }: Props) {
   const navigate = useNavigate()
   const needTermMeta = !!(data && data.courses.length > 0 && !data.termStart)
@@ -54,6 +29,7 @@ export function HomePage({ data, onUpdate }: Props) {
     const max = maxWeekFromCourses(data.courses)
     return currentTeachingWeek(data.termStart, Math.max(max, 1))
   }, [data])
+  /** 周课表默认周：当前教学周；未开学看第 1 周；已结课看最后一周 */
   const weekViewWeek = useMemo(() => {
     if (teachingWeek != null) return teachingWeek
     if (!data) return 1
@@ -66,6 +42,7 @@ export function HomePage({ data, onUpdate }: Props) {
 
   const extraCourses = useMemo(() => {
     if (!data) return []
+    // 仅无固定星期/节次的页脚课（实践等）；有组班时间的重修走正常课表格
     return data.courses.filter(
       (c) => c.schedule === 'unscheduled' || c.weekday === 0,
     )
@@ -138,86 +115,68 @@ export function HomePage({ data, onUpdate }: Props) {
   }
 
   const studentName = data ? studentNameFromPayload(data) : ''
-  const weekChip = beforeTerm
-    ? '未开学'
-    : teachingWeek != null
-      ? `第 ${teachingWeek} 周`
-      : null
-  const courseLabel = data ? summarizeCourses(data.courses).label : ''
+  const subtitle = (() => {
+    if (!data) return '本地课表'
+    const parts: string[] = []
+    if (data.termLabel) parts.push(data.termLabel)
+    if (beforeTerm) parts.push('未开学')
+    else if (teachingWeek != null) parts.push(`第 ${teachingWeek} 周`)
+    parts.push(summarizeCourses(data.courses).label)
+    return parts.join(' · ')
+  })()
+
   const canAdd = !!(data && data.courses.length > 0 && !needTermMeta)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="px-3.5 pt-3.5 pb-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="font-display text-[1.35rem] font-bold leading-tight tracking-tight text-ink">
-              {studentName ? `${studentName}的课表` : '川轻化课表助手'}
-            </h1>
-            {data && data.courses.length > 0 ? (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {data.termLabel && (
-                  <span className="rounded-lg bg-white px-2 py-0.5 text-xs font-medium text-ink border border-line/80">
-                    {data.termLabel}
-                  </span>
-                )}
-                {weekChip && (
-                  <span className="rounded-lg bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-dark">
-                    {weekChip}
-                  </span>
-                )}
-                <span className="text-xs text-muted">{courseLabel}</span>
-              </div>
-            ) : (
-              <p className="mt-1 text-sm text-muted">导入正方教务课表 PDF</p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {canAdd && (
-              <button
-                type="button"
-                onClick={openAdd}
-                className="rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white"
-              >
-                加课
-              </button>
-            )}
+      <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-1">
+        <div className="min-w-0">
+          <h1 className="font-display text-lg font-bold tracking-tight text-ink">
+            {studentName ? `${studentName}的课表` : '川轻化课表助手'}
+          </h1>
+          <p className="truncate text-[0.7rem] text-muted">{subtitle}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {canAdd && (
             <button
               type="button"
-              onClick={() => navigate('/guide')}
-              className="rounded-xl border border-line bg-white px-3 py-2 text-sm font-semibold text-ink"
+              onClick={openAdd}
+              className="rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-white"
             >
-              导入
+              加课
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate('/guide')}
+            className="rounded-lg bg-brand-soft px-2.5 py-1.5 text-xs font-semibold text-brand-dark"
+          >
+            导入
+          </button>
         </div>
       </header>
 
       {needTermMeta && data && (
-        <div className="mx-3.5 mt-1">
+        <div className="mx-3 mt-2">
           <TermMetaForm
             initialLabel={data.termLabel}
             courseSummary={
               data ? summarizeCourses(data.courses).label : undefined
             }
             submitText="保存学期信息"
-            onSubmit={({ termLabel, termStart }) =>
-              saveMeta(termLabel, termStart)
-            }
+            onSubmit={({ termLabel, termStart }) => saveMeta(termLabel, termStart)}
           />
         </div>
       )}
 
       {data && data.courses.length > 0 && !needTermMeta ? (
         <>
-          <div className="mx-3.5 mt-1 grid grid-cols-2 gap-1 rounded-2xl bg-surface p-1">
+          <div className="mx-3 mt-1 flex rounded-xl border border-line bg-white/80 p-0.5">
             <button
               type="button"
               onClick={() => setTab('today')}
-              className={`rounded-xl py-2.5 text-sm font-semibold transition ${
-                tab === 'today'
-                  ? 'bg-white text-ink shadow-sm'
-                  : 'text-muted'
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+                tab === 'today' ? 'bg-brand text-white' : 'text-muted'
               }`}
             >
               今日
@@ -225,8 +184,8 @@ export function HomePage({ data, onUpdate }: Props) {
             <button
               type="button"
               onClick={() => setTab('week')}
-              className={`rounded-xl py-2.5 text-sm font-semibold transition ${
-                tab === 'week' ? 'bg-white text-ink shadow-sm' : 'text-muted'
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+                tab === 'week' ? 'bg-brand text-white' : 'text-muted'
               }`}
             >
               周课表
@@ -234,7 +193,7 @@ export function HomePage({ data, onUpdate }: Props) {
           </div>
 
           {tab === 'today' ? (
-            <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
+            <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
               <TodayView
                 courses={timedCourses}
                 week={teachingWeek}
@@ -245,32 +204,79 @@ export function HomePage({ data, onUpdate }: Props) {
                 onCourseClick={openEditManual}
                 onShowWeek={() => setTab('week')}
               />
-              <ExtraCourses courses={extraCourses} />
+              {extraCourses.length > 0 && (
+                <section className="mx-3 mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3">
+                  <h2 className="text-sm font-semibold text-ink">实践 / 其他课程</h2>
+                  <p className="mt-0.5 text-[0.7rem] text-muted">
+                    教务页脚未写星期节次，只按周次列出，不会塞进课表格。
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {extraCourses.map((c) => (
+                      <li
+                        key={c.id}
+                        className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm"
+                      >
+                        <p className="font-medium text-ink">{c.name}</p>
+                        <p className="mt-0.5 text-[0.75rem] text-muted">
+                          {c.teacher} · {c.weeks}周
+                          {c.room ? ` · ${c.room}` : ''}
+                          {' · 无固定星期/节次'}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+              <p className="px-4 pb-3 text-center text-[0.7rem] text-muted">
+                补课/调课点右上角「加课」· 自加的课可点开修改
+              </p>
             </div>
           ) : (
-            <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
+            <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
               <WeekView
                 courses={timedCourses}
                 suggestedWeek={weekViewWeek}
                 termStart={data.termStart}
                 onCourseClick={openEditManual}
               />
-              <ExtraCourses courses={extraCourses} />
+              {extraCourses.length > 0 && (
+                <section className="mx-3 mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3">
+                  <h2 className="text-sm font-semibold text-ink">实践 / 其他课程</h2>
+                  <p className="mt-0.5 text-[0.7rem] text-muted">
+                    无固定星期/节次，不进入上方课表格。
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {extraCourses.map((c) => (
+                      <li
+                        key={c.id}
+                        className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm"
+                      >
+                        <p className="font-medium text-ink">{c.name}</p>
+                        <p className="mt-0.5 text-[0.75rem] text-muted">
+                          {c.teacher} · {c.weeks}周
+                          {c.room ? ` · ${c.room}` : ''}
+                          {' · 无固定星期/节次'}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
             </div>
           )}
         </>
       ) : !data || data.courses.length === 0 ? (
-        <div className="mx-3.5 mt-4 flex flex-1 flex-col items-center rounded-3xl border border-dashed border-line bg-white px-6 py-14 text-center animate-slide-up">
-          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-brand-soft font-display text-2xl font-bold text-brand">
+        <div className="mx-3 mt-6 flex flex-1 flex-col items-center rounded-2xl border border-dashed border-line bg-white/70 px-6 py-12 text-center animate-slide-up">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft font-display text-xl font-bold text-brand">
             课
           </div>
-          <h2 className="mt-5 text-xl font-semibold text-ink">还没有课表</h2>
-          <p className="mt-2 max-w-[16rem] text-sm leading-relaxed text-muted">
-            导入教务 PDF 后即可查看今日与周课表；临时补课可用「加课」。
+          <h2 className="mt-4 text-lg font-semibold text-ink">还没有课表</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            先导入教务课表，之后老师临时补课，可用「加课」自己加一节。
           </p>
           <Link
             to="/guide"
-            className="mt-7 rounded-2xl bg-brand px-6 py-3 text-sm font-semibold text-white"
+            className="mt-6 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-md shadow-brand/20"
           >
             去导入课表
           </Link>
