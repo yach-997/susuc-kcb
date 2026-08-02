@@ -26,7 +26,6 @@ function formatUpdatedAt(iso: string): string {
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return iso
     return d.toLocaleString('zh-CN', {
-      year: 'numeric',
       month: 'numeric',
       day: 'numeric',
       hour: '2-digit',
@@ -66,7 +65,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       }
       setFbContent('')
       setFbContact('')
-      setFbMsg('已提交，我们会尽快查看，谢谢反馈')
+      setFbMsg('已提交，谢谢反馈')
     } finally {
       setFbBusy(false)
     }
@@ -97,87 +96,56 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
   const studentName = data ? studentNameFromPayload(data) : ''
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 pb-6 pt-5 animate-fade-in">
-      <h1 className="font-display text-2xl font-bold text-ink">设置</h1>
+    <div className="flex-1 overflow-y-auto px-3.5 pb-5 pt-3.5 animate-fade-in">
+      <h1 className="font-display text-xl font-bold text-ink">设置</h1>
 
       {msg && (
-        <div className="mt-3 rounded-xl border border-brand/20 bg-brand-soft px-3 py-2 text-sm text-brand-dark">
+        <div className="mt-2 rounded-lg border border-brand/20 bg-brand-soft px-2.5 py-1.5 text-xs text-brand-dark">
           {msg}
         </div>
       )}
 
-      <section className="mt-6 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">当前课表</h2>
-
+      {/* 主卡片：课表 + 学期 */}
+      <section className="mt-3 rounded-2xl border border-line bg-white p-3.5">
         {summary && data ? (
           <>
-            {studentName ? (
-              <p className="mt-2 text-base font-semibold text-ink">{studentName}</p>
-            ) : null}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-surface px-3 py-3 text-center">
-                <div className="text-xl font-bold tabular-nums text-ink">
-                  {summary.unique}
-                </div>
-                <div className="mt-0.5 text-[0.7rem] text-muted">门课</div>
-              </div>
-              <div className="rounded-xl bg-surface px-3 py-3 text-center">
-                <div className="text-xl font-bold tabular-nums text-ink">
-                  {summary.slots}
-                </div>
-                <div className="mt-0.5 text-[0.7rem] text-muted">条课次</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                {studentName ? (
+                  <p className="truncate text-[15px] font-semibold text-ink">
+                    {studentName}
+                  </p>
+                ) : (
+                  <p className="text-[15px] font-semibold text-ink">当前课表</p>
+                )}
+                <p className="mt-0.5 text-[11px] text-muted">
+                  {summary.unique} 门课 · {summary.slots} 条课次 ·{' '}
+                  {formatUpdatedAt(data.updatedAt)}
+                </p>
               </div>
             </div>
-            <p className="mt-2.5 text-center text-[0.75rem] text-muted">
-              更新于 {formatUpdatedAt(data.updatedAt)}
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-sm text-muted">还没有导入课表</p>
-        )}
 
-        <button
-          type="button"
-          onClick={() => navigate('/guide')}
-          className="mt-3 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white"
-        >
-          {summary ? '重新导入课表' : '去导入课表'}
-        </button>
-        {summary && (
-          <button
-            type="button"
-            onClick={handleClearTimetable}
-            className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-medium text-expired"
-          >
-            清除本地课表
-          </button>
-        )}
-      </section>
-
-      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">学期信息</h2>
-        {data && data.courses.length > 0 ? (
-          <>
-            <dl className="mt-3 space-y-2 text-sm">
-              <div className="flex items-start justify-between gap-3">
-                <dt className="shrink-0 text-muted">学期</dt>
+            <dl className="mt-2.5 space-y-1.5 border-t border-line/70 pt-2.5 text-[13px]">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted">学期</dt>
                 <dd className="text-right font-medium text-ink">
                   {data.termLabel || '未填写'}
                 </dd>
               </div>
-              <div className="flex items-start justify-between gap-3">
-                <dt className="shrink-0 text-muted">第 1 周星期一</dt>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted">第 1 周周一</dt>
                 <dd className="text-right font-medium text-ink">
                   {data.termStart || '未填写'}
                 </dd>
               </div>
             </dl>
+
             {editingTerm ? (
-              <div className="mt-3">
+              <div className="mt-2.5 border-t border-line/70 pt-2.5">
                 <TermMetaForm
                   initialLabel={data.termLabel}
                   initialStart={data.termStart}
-                  submitText="保存学期信息"
+                  submitText="保存"
                   onCancel={() => setEditingTerm(false)}
                   onSubmit={({ termLabel, termStart }) => {
                     const next: TimetablePayload = {
@@ -193,132 +161,184 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
                 />
               </div>
             ) : (
+              <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => navigate('/guide')}
+                  className="rounded-xl bg-brand px-2 py-2.5 text-[13px] font-semibold text-white"
+                >
+                  重新导入
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingTerm(true)}
+                  className="rounded-xl border border-line bg-surface px-2 py-2.5 text-[13px] font-medium text-ink"
+                >
+                  改学期
+                </button>
+              </div>
+            )}
+            {!editingTerm && (
               <button
                 type="button"
-                onClick={() => setEditingTerm(true)}
-                className="mt-3 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink"
+                onClick={handleClearTimetable}
+                className="mt-1.5 w-full py-1.5 text-center text-[12px] text-muted"
               >
-                修改学期 / 第一周日期
+                清除本地课表
               </button>
             )}
           </>
         ) : (
-          <p className="mt-1.5 text-sm text-muted">导入课表后可在此修改学期与开学周。</p>
+          <>
+            <p className="text-[13px] text-muted">还没有导入课表</p>
+            <button
+              type="button"
+              onClick={() => navigate('/guide')}
+              className="mt-2.5 w-full rounded-xl bg-brand px-3 py-2.5 text-[13px] font-semibold text-white"
+            >
+              去导入课表
+            </button>
+          </>
         )}
       </section>
 
-      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">添加到桌面</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          放到桌面后打开更快。
-        </p>
-        <AddToHomeButton />
-      </section>
-
-      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">更新 / 清理</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          固定地址（更新后刷新即可，不用换链接）：
-        </p>
-        <a
-          className="mt-2.5 block break-all rounded-lg bg-surface px-3 py-2.5 text-sm font-medium text-brand"
-          href="https://susuc-kcb.shipstatic.com"
-        >
-          https://susuc-kcb.shipstatic.com
-        </a>
-        <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
-          若页面还是旧版，点下方清理缓存。
-        </p>
+      {/* 快捷：桌面（折叠）+ 缓存 */}
+      <section className="mt-2 overflow-hidden rounded-2xl border border-line bg-white">
+        <details className="group border-b border-line/70">
+          <summary className="cursor-pointer list-none px-3.5 py-2.5 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center justify-between gap-2">
+              <span>
+                <span className="block text-[13px] font-medium text-ink">
+                  添加到桌面
+                </span>
+                <span className="block text-[11px] text-muted">打开更快</span>
+              </span>
+              <span className="text-[12px] text-muted group-open:hidden">
+                展开
+              </span>
+              <span className="hidden text-[12px] text-muted group-open:inline">
+                收起
+              </span>
+            </span>
+          </summary>
+          <div className="px-3.5 pb-3 [&_.mt-3]:mt-0">
+            <AddToHomeButton />
+          </div>
+        </details>
         <button
           type="button"
           disabled={refreshing}
           onClick={handleHardRefresh}
-          className="mt-3.5 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-60"
+          className="flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left disabled:opacity-60"
         >
-          {refreshing ? '正在清理…' : '清理缓存并刷新'}
+          <div>
+            <p className="text-[13px] font-medium text-ink">
+              {refreshing ? '正在清理…' : '清理缓存并刷新'}
+            </p>
+            <p className="text-[11px] text-muted">页面异常或仍是旧版时用</p>
+          </div>
+          <span className="text-[12px] text-muted">›</span>
         </button>
       </section>
 
-      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">帮助与反馈</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          导入失败、显示异常可直接留言；也可加群联系维护同学。
-        </p>
-        <div className="mt-3 flex gap-2">
-          <a
-            href="https://qm.qq.com/q/iy0gyxKnrq"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2 text-center text-[0.78rem] font-medium text-ink active:opacity-70"
-          >
-            QQ 客服
-          </a>
-          <a
-            href="https://qm.qq.com/q/ZwGz3jrQis"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2 text-center text-[0.78rem] font-medium text-ink active:opacity-70"
-          >
-            维护群
-          </a>
-          <a
-            href="https://pd.qq.com/s/6d36qjaxs?b=9"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2 text-center text-[0.78rem] font-medium text-ink active:opacity-70"
-          >
-            QQ 频道
-          </a>
-        </div>
-        <form onSubmit={onSubmitFeedback} className="mt-3 space-y-2">
-          <textarea
-            value={fbContent}
-            onChange={(e) => setFbContent(e.target.value)}
-            rows={2}
-            maxLength={2000}
-            required
-            placeholder="留言反馈（如：某学院 PDF 识别不出…）"
-            className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
-          />
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={fbContact}
-              onChange={(e) => setFbContact(e.target.value)}
-              maxLength={120}
-              placeholder="选填 QQ/微信"
-              className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
-            />
-            <button
-              type="submit"
-              disabled={fbBusy || !fbContent.trim()}
-              className="shrink-0 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+      {/* 反馈：默认折叠 */}
+      <details className="mt-2 rounded-2xl border border-line bg-white open:pb-3">
+        <summary className="cursor-pointer list-none px-3.5 py-2.5 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center justify-between gap-2">
+            <span>
+              <span className="block text-[13px] font-medium text-ink">
+                帮助与反馈
+              </span>
+              <span className="block text-[11px] text-muted">
+                留言或加群联系
+              </span>
+            </span>
+            <span className="text-[12px] text-muted">展开</span>
+          </span>
+        </summary>
+        <div className="border-t border-line/70 px-3.5 pt-2.5">
+          <div className="flex gap-1.5">
+            <a
+              href="https://qm.qq.com/q/iy0gyxKnrq"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-w-0 flex-1 rounded-lg bg-surface py-1.5 text-center text-[12px] font-medium text-ink"
             >
-              {fbBusy ? '…' : '提交'}
-            </button>
+              QQ 客服
+            </a>
+            <a
+              href="https://qm.qq.com/q/ZwGz3jrQis"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-w-0 flex-1 rounded-lg bg-surface py-1.5 text-center text-[12px] font-medium text-ink"
+            >
+              维护群
+            </a>
+            <a
+              href="https://pd.qq.com/s/6d36qjaxs?b=9"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-w-0 flex-1 rounded-lg bg-surface py-1.5 text-center text-[12px] font-medium text-ink"
+            >
+              QQ 频道
+            </a>
           </div>
-          {fbErr && <p className="text-sm text-expired">{fbErr}</p>}
-          {fbMsg && <p className="text-sm text-brand-dark">{fbMsg}</p>}
-        </form>
-      </section>
+          <form onSubmit={onSubmitFeedback} className="mt-2 space-y-1.5">
+            <textarea
+              value={fbContent}
+              onChange={(e) => setFbContent(e.target.value)}
+              rows={2}
+              maxLength={2000}
+              required
+              placeholder="留言反馈…"
+              className="w-full resize-none rounded-xl border border-line bg-surface px-2.5 py-2 text-[13px] text-ink outline-none focus:border-brand"
+            />
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={fbContact}
+                onChange={(e) => setFbContact(e.target.value)}
+                maxLength={120}
+                placeholder="选填 QQ/微信"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2.5 py-2 text-[13px] text-ink outline-none focus:border-brand"
+              />
+              <button
+                type="submit"
+                disabled={fbBusy || !fbContent.trim()}
+                className="shrink-0 rounded-xl bg-ink px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+              >
+                {fbBusy ? '…' : '提交'}
+              </button>
+            </div>
+            {fbErr && <p className="text-xs text-expired">{fbErr}</p>}
+            {fbMsg && <p className="text-xs text-brand-dark">{fbMsg}</p>}
+          </form>
+        </div>
+      </details>
 
-      <section className="mt-3 rounded-2xl border border-line bg-white p-4 text-sm leading-relaxed text-muted">
-        <h2 className="text-[0.95rem] font-semibold text-ink">关于</h2>
-        <p className="mt-2 text-ink">川轻化课表助手</p>
-        <p className="mt-1 text-xs text-muted">四川轻化工大学课表助手</p>
-        <p className="mt-2">
-          正方教务：{' '}
+      {/* 关于：一行底栏 */}
+      <footer className="mt-4 space-y-1 px-0.5 text-center text-[11px] leading-relaxed text-muted">
+        <p>
+          川轻化课表助手 · v{APP_VERSION}
+        </p>
+        <p>
           <a
-            className="break-all text-brand underline decoration-brand/30 underline-offset-2"
+            className="text-brand"
+            href="https://susuc-kcb.shipstatic.com"
+          >
+            固定地址
+          </a>
+          <span className="mx-1.5 text-line">·</span>
+          <a
+            className="text-brand"
             href="https://jwgl.suse.edu.cn"
             target="_blank"
             rel="noreferrer"
           >
-            https://jwgl.suse.edu.cn
+            正方教务
           </a>
         </p>
-        <p className="mt-1">版本 {APP_VERSION}</p>
-      </section>
+      </footer>
     </div>
   )
 }
