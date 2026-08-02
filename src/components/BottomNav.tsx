@@ -19,7 +19,7 @@ export function BottomNav() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-xl py-2 text-xs font-medium transition ${
+                `flex flex-col items-center gap-0.5 rounded-xl py-2.5 text-sm font-medium transition ${
                   isActive ? 'text-brand' : 'text-muted'
                 }`
               }
@@ -27,7 +27,7 @@ export function BottomNav() {
               {({ isActive }) => (
                 <>
                   <span
-                    className={`h-1 w-6 rounded-full transition ${
+                    className={`h-1 w-7 rounded-full transition ${
                       isActive ? 'bg-brand' : 'bg-transparent'
                     }`}
                   />

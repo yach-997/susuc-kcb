@@ -132,36 +132,33 @@ function EventRow({
         : null
 
   return (
-    <li className="px-3 py-2.5">
-      <div className="flex items-start gap-2">
+    <li className="px-3.5 py-3">
+      <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
-              className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${kindTone(ev.kind)}`}
+              className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${kindTone(ev.kind)}`}
             >
               {kindLabel(ev.kind)}
             </span>
-            <span className="text-[11px] tabular-nums text-muted">
+            <span className="text-sm tabular-nums text-muted">
               {formatTime(ev.created_at)}
             </span>
-            <span className="text-[11px] text-muted">
+            <span className="text-sm text-muted">
               {anonVisitorLabel(ev.visitor_id)}
             </span>
           </div>
           {showDetail && summary && (
-            <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-ink">
+            <p className="mt-1.5 line-clamp-3 text-base leading-snug text-ink">
               {summary}
             </p>
           )}
           {fileName && (
-            <p
-              className="mt-0.5 truncate text-[11px] text-muted"
-              title={fileName}
-            >
+            <p className="mt-1 truncate text-sm text-muted" title={fileName}>
               {fileName}
             </p>
           )}
-          {tip && <p className="mt-1 text-[11px] text-rose-600">{tip}</p>}
+          {tip && <p className="mt-1 text-sm text-rose-600">{tip}</p>}
         </div>
         {(ev.kind === 'import' || ev.kind === 'import_fail') && (
           <div className="shrink-0 pt-0.5">
@@ -177,12 +174,12 @@ function EventRow({
                     if (!res.ok) setTip(res.error)
                   })
                 }}
-                className="rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-ink disabled:opacity-50"
+                className="rounded-xl border border-line px-3 py-2 text-sm font-semibold text-ink disabled:opacity-50"
               >
                 {busy ? '…' : 'PDF'}
               </button>
             ) : (
-              <span className="block max-w-[4.5rem] text-right text-[10px] leading-tight text-muted">
+              <span className="block max-w-[5rem] text-right text-xs leading-snug text-muted">
                 {typeof ev.meta?.uploadError === 'string'
                   ? '上传失败'
                   : '无附件'}
@@ -261,7 +258,7 @@ function DatePickerCard({
           type="button"
           aria-label="前一天"
           disabled={is30}
-          className="flex h-10 w-9 shrink-0 items-center justify-center rounded-xl border border-line text-base text-ink disabled:opacity-35"
+          className="flex h-11 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-base text-ink disabled:opacity-35"
           onClick={() => onChangeDay(shiftDay(day, -1))}
         >
           ‹
@@ -271,10 +268,10 @@ function DatePickerCard({
           className="min-w-0 flex-1 rounded-xl bg-surface px-2 py-1.5 text-center"
           onClick={openSheet}
         >
-          <div className="truncate text-[13px] font-semibold text-ink">
+          <div className="truncate text-base font-semibold text-ink">
             {is30 ? '近 30 天' : formatDayLabel(day)}
           </div>
-          <div className="text-[10px] tabular-nums text-muted">
+          <div className="text-xs tabular-nums text-muted">
             {is30
               ? `${shiftDay(day, -29).slice(5)} — ${day.slice(5)}`
               : '点选日期'}
@@ -284,7 +281,7 @@ function DatePickerCard({
           type="button"
           aria-label="后一天"
           disabled={is30 || day >= today}
-          className="flex h-10 w-9 shrink-0 items-center justify-center rounded-xl border border-line text-base text-ink disabled:opacity-35"
+          className="flex h-11 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-base text-ink disabled:opacity-35"
           onClick={() => onChangeDay(shiftDay(day, 1))}
         >
           ›
@@ -326,7 +323,7 @@ function DatePickerCard({
             key={btn.key}
             type="button"
             onClick={btn.onClick}
-            className={`flex-1 rounded-lg py-1 text-[11px] font-semibold transition ${
+            className={`flex-1 rounded-lg py-1 text-sm font-semibold transition ${
               btn.active
                 ? 'bg-brand text-white'
                 : 'bg-surface text-muted'
@@ -371,7 +368,7 @@ function DatePickerCard({
                 ›
               </button>
             </div>
-            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] text-muted">
+            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-sm text-muted">
               {['日', '一', '二', '三', '四', '五', '六'].map((w) => (
                 <div key={w} className="py-1">
                   {w}
@@ -699,7 +696,7 @@ export function AdminPage() {
             >
               {busy ? '登录中…' : '进入后台'}
             </button>
-            <p className="text-center text-[11px] leading-relaxed text-muted">
+            <p className="text-center text-sm leading-relaxed text-muted">
               登录后约 30 天内免重复登录；退出不会清除记住的账号。
             </p>
           </form>
@@ -737,7 +734,7 @@ export function AdminPage() {
     <div className="flex-1 overflow-y-auto pb-8">
       <div className="px-3.5 pt-3">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="font-display text-lg font-bold text-ink">管理后台</h1>
+          <h1 className="font-display text-xl font-bold text-ink">管理后台</h1>
           <button
             type="button"
             className="shrink-0 rounded-lg px-2 py-1 text-xs text-muted"
@@ -764,13 +761,13 @@ export function AdminPage() {
               key={key}
               type="button"
               onClick={() => setSection(key)}
-              className={`relative rounded-lg px-1 py-1.5 text-[11px] font-medium transition ${
+              className={`relative rounded-xl px-1 py-2.5 text-sm font-semibold transition ${
                 section === key ? 'bg-white text-ink' : 'text-muted'
               }`}
             >
               {label}
               {key === 'feedback' && feedbackNew > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 min-w-[0.9rem] rounded-full bg-rose-500 px-1 text-[9px] leading-tight text-white">
+                <span className="absolute -right-0.5 -top-0.5 min-w-[0.9rem] rounded-full bg-rose-500 px-1 text-xs leading-tight text-white">
                   {feedbackNew > 9 ? '9+' : feedbackNew}
                 </span>
               )}
@@ -793,7 +790,7 @@ export function AdminPage() {
               </p>
             )}
 
-            <div className="mt-3 flex items-baseline justify-between gap-2 px-0.5 text-[11px] text-muted">
+            <div className="mt-3 flex items-baseline justify-between gap-2 px-0.5 text-sm text-muted">
               <span>
                 打开{' '}
                 <span className="font-semibold tabular-nums text-ink">
@@ -813,7 +810,7 @@ export function AdminPage() {
                 </span>
               </span>
               {reportLoading && report && (
-                <span className="text-[10px]">刷新中</span>
+                <span className="text-xs">刷新中</span>
               )}
             </div>
 
@@ -829,7 +826,7 @@ export function AdminPage() {
                   key={key}
                   type="button"
                   onClick={() => setDayTab(key)}
-                  className={`min-w-0 flex-1 rounded-lg py-1.5 text-[11px] font-medium transition ${
+                  className={`min-w-0 flex-1 rounded-lg py-1.5 text-sm font-medium transition ${
                     dayTab === key
                       ? 'bg-brand text-white'
                       : 'text-muted'
@@ -878,12 +875,12 @@ export function AdminPage() {
               onChangeDay={setUserDay}
               onChangeDays={setUserDays}
             />
-            <p className="mt-2 px-0.5 text-[11px] text-muted">
+            <p className="mt-2 px-0.5 text-sm text-muted">
               匿名访客{' '}
               <span className="text-base font-semibold tabular-nums text-ink">
                 {visitorTotal}
               </span>
-              <span className="ml-1.5 text-[10px]">同设备同号</span>
+              <span className="ml-1.5 text-xs">同设备同号</span>
             </p>
             {visitorError && (
               <p className="mt-2 rounded-xl bg-rose-50 px-2.5 py-1.5 text-xs text-rose-700">
@@ -903,14 +900,14 @@ export function AdminPage() {
                 visitors.map((v) => (
                   <li key={v.visitor_id} className="px-3 py-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[13px] font-semibold text-ink">
+                      <span className="text-base font-semibold text-ink">
                         {anonVisitorLabel(v.visitor_id)}
                       </span>
-                      <span className="text-[10px] tabular-nums text-muted">
+                      <span className="text-xs tabular-nums text-muted">
                         {formatDateTime(v.last_seen)}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-muted">
+                    <p className="mt-0.5 text-sm text-muted">
                       打开 {v.page_count}
                       <span className="mx-1 text-line">·</span>
                       成功 {v.import_count}
@@ -945,7 +942,7 @@ export function AdminPage() {
                   key={key}
                   type="button"
                   onClick={() => setFbStatus(key)}
-                  className={`flex-1 rounded-lg py-1.5 text-[11px] font-medium ${
+                  className={`flex-1 rounded-lg py-1.5 text-sm font-medium ${
                     fbStatus === key ? 'bg-brand text-white' : 'text-muted'
                   }`}
                 >
@@ -976,7 +973,7 @@ export function AdminPage() {
                   >
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        className={`rounded px-1.5 py-0.5 text-xs font-semibold ${
                           item.status === 'new'
                             ? 'bg-rose-50 text-rose-700'
                             : item.status === 'done'
@@ -990,18 +987,18 @@ export function AdminPage() {
                             ? '完成'
                             : '已读'}
                       </span>
-                      <span className="text-[11px] text-muted">
+                      <span className="text-sm text-muted">
                         {anonVisitorLabel(item.visitor_id)}
                       </span>
-                      <span className="text-[10px] tabular-nums text-muted">
+                      <span className="text-xs tabular-nums text-muted">
                         {formatDateTime(item.created_at)}
                       </span>
                     </div>
-                    <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-snug text-ink">
+                    <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-snug text-ink">
                       {item.content}
                     </p>
                     {item.contact && (
-                      <p className="mt-0.5 text-[11px] text-muted">
+                      <p className="mt-0.5 text-sm text-muted">
                         联系：{item.contact}
                       </p>
                     )}
@@ -1009,7 +1006,7 @@ export function AdminPage() {
                       {item.status === 'new' && (
                         <button
                           type="button"
-                          className="rounded-lg border border-line px-2 py-1 text-[11px] text-ink"
+                          className="rounded-lg border border-line px-2 py-1 text-sm text-ink"
                           onClick={() => {
                             void setFeedbackStatus(item.id, 'read').then(() =>
                               loadFeedback(fbDay, fbDays, fbStatus),
@@ -1022,7 +1019,7 @@ export function AdminPage() {
                       {item.status !== 'done' && (
                         <button
                           type="button"
-                          className="rounded-lg bg-brand px-2 py-1 text-[11px] font-medium text-white"
+                          className="rounded-lg bg-brand px-2 py-1 text-sm font-medium text-white"
                           onClick={() => {
                             void setFeedbackStatus(item.id, 'done').then(() =>
                               loadFeedback(fbDay, fbDays, fbStatus),
@@ -1035,7 +1032,7 @@ export function AdminPage() {
                       {item.status === 'done' && (
                         <button
                           type="button"
-                          className="rounded-lg border border-line px-2 py-1 text-[11px] text-muted"
+                          className="rounded-lg border border-line px-2 py-1 text-sm text-muted"
                           onClick={() => {
                             void setFeedbackStatus(item.id, 'new').then(() =>
                               loadFeedback(fbDay, fbDays, fbStatus),
@@ -1056,9 +1053,9 @@ export function AdminPage() {
         {section === 'account' && (
           <section className="mt-3 space-y-3">
             <div className="rounded-2xl border border-line/80 bg-white p-3.5">
-              <h2 className="text-[13px] font-semibold text-ink">修改密码</h2>
+              <h2 className="text-base font-semibold text-ink">修改密码</h2>
               <form onSubmit={onChangePw} className="mt-2.5 space-y-2.5">
-                <label className="block text-[11px] text-muted">
+                <label className="block text-sm text-muted">
                   旧密码
                   <input
                     type="password"
@@ -1068,7 +1065,7 @@ export function AdminPage() {
                     required
                   />
                 </label>
-                <label className="block text-[11px] text-muted">
+                <label className="block text-sm text-muted">
                   新密码（至少 6 位）
                   <input
                     type="password"
@@ -1091,7 +1088,7 @@ export function AdminPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="rounded-xl bg-brand px-3.5 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                  className="rounded-xl bg-brand px-3.5 py-2 text-[15px] font-semibold text-white disabled:opacity-60"
                 >
                   保存
                 </button>
@@ -1099,11 +1096,11 @@ export function AdminPage() {
             </div>
 
             <details className="rounded-2xl border border-dashed border-line bg-surface/60 open:bg-white open:pb-2.5">
-              <summary className="cursor-pointer list-none px-3 py-2 text-[11px] text-muted [&::-webkit-details-marker]:hidden">
+              <summary className="cursor-pointer list-none px-3 py-2 text-sm text-muted [&::-webkit-details-marker]:hidden">
                 高级 · 清理动态与 PDF
               </summary>
               <div className="border-t border-line/50 px-3 pt-2">
-                <p className="text-[11px] leading-relaxed text-muted">
+                <p className="text-sm leading-relaxed text-muted">
                   不可恢复。此时段 =「每日」页当前所选日期/近30天。
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1112,7 +1109,7 @@ export function AdminPage() {
                       <button
                         type="button"
                         disabled={clearBusy}
-                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11px] text-ink disabled:opacity-50"
+                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-sm text-ink disabled:opacity-50"
                         onClick={() => {
                           setClearArmed('range')
                           setClearMsg(
@@ -1125,7 +1122,7 @@ export function AdminPage() {
                       <button
                         type="button"
                         disabled={clearBusy}
-                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] text-rose-700 disabled:opacity-50"
+                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-sm text-rose-700 disabled:opacity-50"
                         onClick={() => {
                           setClearArmed('all')
                           setClearMsg('将清空全部历史，再点确认。')
@@ -1140,7 +1137,7 @@ export function AdminPage() {
                       <button
                         type="button"
                         disabled={clearBusy}
-                        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
                         onClick={() => runClear(clearArmed === 'all')}
                       >
                         {clearBusy
@@ -1152,7 +1149,7 @@ export function AdminPage() {
                       <button
                         type="button"
                         disabled={clearBusy}
-                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11px] text-muted disabled:opacity-50"
+                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-sm text-muted disabled:opacity-50"
                         onClick={() => {
                           setClearArmed(null)
                           setClearMsg(null)
@@ -1165,7 +1162,7 @@ export function AdminPage() {
                 </div>
                 {clearMsg && (
                   <p
-                    className={`mt-2 text-[11px] ${
+                    className={`mt-2 text-sm ${
                       clearMsg.startsWith('已')
                         ? 'text-brand'
                         : clearMsg.startsWith('正在') ||
