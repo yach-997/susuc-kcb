@@ -146,6 +146,52 @@ export async function adminLogin(
   return { ok: true }
 }
 
+export async function clearAdminEvents(opts: {
+  day?: string | null
+  days?: number
+  all?: boolean
+}): Promise<
+  | { ok: true; eventCount: number; pdfCount: number; all: boolean }
+  | { ok: false; error: string }
+> {
+  const sb = getSupabase()
+  const token = readAdminToken()
+  if (!sb || !token) return { ok: false, error: 'unauthorized' }
+  const { data, error } = await sb.rpc('admin_clear_events', {
+    p_token: token,
+    p_day: opts.all ? null : (opts.day ?? null),
+    p_days: opts.days ?? 1,
+    p_all: !!opts.all,
+  })
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.message.includes('admin_clear_events') ||
+        error.message.includes('Could not find')
+          ? '请重新执行 supabase/admin_uploads.sql'
+          : error.message,
+    }
+  }
+  const row = data as {
+    ok?: boolean
+    error?: string
+    eventCount?: number
+    pdfCount?: number
+    all?: boolean
+  } | null
+  if (!row?.ok) {
+    if (row?.error === 'unauthorized') clearAdminToken()
+    return { ok: false, error: row?.error || '清理失败' }
+  }
+  return {
+    ok: true,
+    eventCount: Number(row.eventCount) || 0,
+    pdfCount: Number(row.pdfCount) || 0,
+    all: !!row.all,
+  }
+}
+
 export async function fetchDayReport(
   day: string,
   days = 1,

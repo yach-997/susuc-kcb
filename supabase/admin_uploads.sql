@@ -193,3 +193,103 @@ end;
 $$;
 
 grant execute on function public.admin_day_report(text, date, int) to anon, authenticated;
+
+-- 3) 清理动态：删埋点 + 关联 PDF（释放存储）
+create or replace function public.admin_clear_events(
+  p_token text,
+  p_day date default null,
+  p_days int default 1,
+  p_all boolean default false
+)
+returns json
+language plpgsql
+security definer
+set search_path = public, storage
+as $$
+declare
+  sess boolean;
+  span int;
+  day_start timestamptz;
+  day_end timestamptz;
+  paths text[];
+  event_count bigint;
+  pdf_count bigint;
+begin
+  select exists (
+    select 1 from public.admin_sessions
+    where token = p_token and expires_at > now()
+  ) into sess;
+
+  if not sess then
+    return json_build_object('ok', false, 'error', 'unauthorized');
+  end if;
+
+  if coalesce(p_all, false) then
+    select coalesce(array_agg(p), '{}') into paths
+    from (
+      select distinct trim(meta->>'storagePath') as p
+      from telemetry_events
+      where meta ? 'storagePath'
+        and nullif(trim(meta->>'storagePath'), '') is not null
+        and (meta->>'storagePath') like 'pdf/%'
+    ) s;
+
+    delete from storage.objects
+    where bucket_id = 'timetable-uploads'
+      and name = any(paths);
+    get diagnostics pdf_count = row_count;
+
+    delete from public.admin_pdf_grants where path = any(paths);
+
+    delete from telemetry_events;
+    get diagnostics event_count = row_count;
+
+    return json_build_object(
+      'ok', true,
+      'all', true,
+      'eventCount', event_count,
+      'pdfCount', pdf_count
+    );
+  end if;
+
+  if p_day is null then
+    return json_build_object('ok', false, 'error', 'missing_day');
+  end if;
+
+  span := greatest(1, least(coalesce(p_days, 1), 90));
+  day_end := ((p_day + 1)::timestamp AT TIME ZONE 'Asia/Shanghai');
+  day_start := (((p_day - (span - 1))::timestamp) AT TIME ZONE 'Asia/Shanghai');
+
+  select coalesce(array_agg(p), '{}') into paths
+  from (
+    select distinct trim(meta->>'storagePath') as p
+    from telemetry_events
+    where created_at >= day_start and created_at < day_end
+      and meta ? 'storagePath'
+      and nullif(trim(meta->>'storagePath'), '') is not null
+      and (meta->>'storagePath') like 'pdf/%'
+  ) s;
+
+  delete from storage.objects
+  where bucket_id = 'timetable-uploads'
+    and name = any(paths);
+  get diagnostics pdf_count = row_count;
+
+  delete from public.admin_pdf_grants where path = any(paths);
+
+  delete from telemetry_events
+  where created_at >= day_start and created_at < day_end;
+  get diagnostics event_count = row_count;
+
+  return json_build_object(
+    'ok', true,
+    'all', false,
+    'day', p_day,
+    'days', span,
+    'eventCount', event_count,
+    'pdfCount', pdf_count
+  );
+end;
+$$;
+
+grant execute on function public.admin_clear_events(text, date, int, boolean) to anon, authenticated;
