@@ -867,93 +867,6 @@ export function AdminPage() {
                 </ul>
               )}
             </section>
-
-            <details className="mt-3 rounded-2xl border border-line/80 bg-white open:pb-2.5">
-              <summary className="cursor-pointer list-none px-3 py-2.5 text-[12px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
-                <span className="flex items-center justify-between gap-2">
-                  存储清理
-                  <span className="text-[10px] font-normal text-muted">
-                    展开
-                  </span>
-                </span>
-              </summary>
-              <div className="border-t border-line/60 px-3 pt-2">
-                <p className="text-[11px] leading-relaxed text-muted">
-                  删除埋点与关联 PDF，释放空间。不可恢复。
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {clearArmed == null && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={clearBusy}
-                        className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink disabled:opacity-50"
-                        onClick={() => {
-                          setClearArmed('range')
-                          setClearMsg(
-                            `将清理「${days === 30 ? '近 30 天' : formatDayLabel(day)}」动态与 PDF，再点确认。`,
-                          )
-                        }}
-                      >
-                        清理此时段
-                      </button>
-                      <button
-                        type="button"
-                        disabled={clearBusy}
-                        className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 disabled:opacity-50"
-                        onClick={() => {
-                          setClearArmed('all')
-                          setClearMsg('将清空全部历史与 PDF，再点确认。')
-                        }}
-                      >
-                        清理全部
-                      </button>
-                    </>
-                  )}
-                  {clearArmed != null && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={clearBusy}
-                        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
-                        onClick={() => runClear(clearArmed === 'all')}
-                      >
-                        {clearBusy
-                          ? '清理中…'
-                          : clearArmed === 'all'
-                            ? '确认清空全部'
-                            : '确认清理此时段'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={clearBusy}
-                        className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-muted disabled:opacity-50"
-                        onClick={() => {
-                          setClearArmed(null)
-                          setClearMsg(null)
-                        }}
-                      >
-                        取消
-                      </button>
-                    </>
-                  )}
-                </div>
-                {clearMsg && (
-                  <p
-                    className={`mt-2 text-[11px] ${
-                      clearMsg.startsWith('已')
-                        ? 'text-brand'
-                        : clearMsg.startsWith('正在') ||
-                            clearMsg.startsWith('将')
-                          ? 'text-muted'
-                          : 'text-rose-600'
-                    }`}
-                  >
-                    {clearMsg}
-                  </p>
-                )}
-              </div>
-            </details>
           </>
         )}
 
@@ -1141,47 +1054,131 @@ export function AdminPage() {
         )}
 
         {section === 'account' && (
-          <section className="mt-3 rounded-2xl border border-line/80 bg-white p-3.5">
-            <h2 className="text-[13px] font-semibold text-ink">修改密码</h2>
-            <form onSubmit={onChangePw} className="mt-2.5 space-y-2.5">
-              <label className="block text-[11px] text-muted">
-                旧密码
-                <input
-                  type="password"
-                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
-                  value={oldPw}
-                  onChange={(e) => setOldPw(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="block text-[11px] text-muted">
-                新密码（至少 6 位）
-                <input
-                  type="password"
-                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  minLength={6}
-                  required
-                />
-              </label>
-              {pwMsg && (
-                <p
-                  className={`text-xs ${
-                    pwMsg === '密码已更新' ? 'text-brand' : 'text-rose-600'
-                  }`}
+          <section className="mt-3 space-y-3">
+            <div className="rounded-2xl border border-line/80 bg-white p-3.5">
+              <h2 className="text-[13px] font-semibold text-ink">修改密码</h2>
+              <form onSubmit={onChangePw} className="mt-2.5 space-y-2.5">
+                <label className="block text-[11px] text-muted">
+                  旧密码
+                  <input
+                    type="password"
+                    className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+                    value={oldPw}
+                    onChange={(e) => setOldPw(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="block text-[11px] text-muted">
+                  新密码（至少 6 位）
+                  <input
+                    type="password"
+                    className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+                    value={newPw}
+                    onChange={(e) => setNewPw(e.target.value)}
+                    minLength={6}
+                    required
+                  />
+                </label>
+                {pwMsg && (
+                  <p
+                    className={`text-xs ${
+                      pwMsg === '密码已更新' ? 'text-brand' : 'text-rose-600'
+                    }`}
+                  >
+                    {pwMsg}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-xl bg-brand px-3.5 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
                 >
-                  {pwMsg}
+                  保存
+                </button>
+              </form>
+            </div>
+
+            <details className="rounded-2xl border border-dashed border-line bg-surface/60 open:bg-white open:pb-2.5">
+              <summary className="cursor-pointer list-none px-3 py-2 text-[11px] text-muted [&::-webkit-details-marker]:hidden">
+                高级 · 清理动态与 PDF
+              </summary>
+              <div className="border-t border-line/50 px-3 pt-2">
+                <p className="text-[11px] leading-relaxed text-muted">
+                  不可恢复。此时段 =「每日」页当前所选日期/近30天。
                 </p>
-              )}
-              <button
-                type="submit"
-                disabled={busy}
-                className="rounded-xl bg-brand px-3.5 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
-              >
-                保存
-              </button>
-            </form>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {clearArmed == null && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={clearBusy}
+                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11px] text-ink disabled:opacity-50"
+                        onClick={() => {
+                          setClearArmed('range')
+                          setClearMsg(
+                            `将清理「${days === 30 ? '近 30 天' : formatDayLabel(day)}」，再点确认。`,
+                          )
+                        }}
+                      >
+                        清理此时段
+                      </button>
+                      <button
+                        type="button"
+                        disabled={clearBusy}
+                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] text-rose-700 disabled:opacity-50"
+                        onClick={() => {
+                          setClearArmed('all')
+                          setClearMsg('将清空全部历史，再点确认。')
+                        }}
+                      >
+                        清理全部
+                      </button>
+                    </>
+                  )}
+                  {clearArmed != null && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={clearBusy}
+                        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                        onClick={() => runClear(clearArmed === 'all')}
+                      >
+                        {clearBusy
+                          ? '清理中…'
+                          : clearArmed === 'all'
+                            ? '确认清空全部'
+                            : '确认清理此时段'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={clearBusy}
+                        className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11px] text-muted disabled:opacity-50"
+                        onClick={() => {
+                          setClearArmed(null)
+                          setClearMsg(null)
+                        }}
+                      >
+                        取消
+                      </button>
+                    </>
+                  )}
+                </div>
+                {clearMsg && (
+                  <p
+                    className={`mt-2 text-[11px] ${
+                      clearMsg.startsWith('已')
+                        ? 'text-brand'
+                        : clearMsg.startsWith('正在') ||
+                            clearMsg.startsWith('将')
+                          ? 'text-muted'
+                          : 'text-rose-600'
+                    }`}
+                  >
+                    {clearMsg}
+                  </p>
+                )}
+              </div>
+            </details>
           </section>
         )}
       </div>
