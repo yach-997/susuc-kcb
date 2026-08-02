@@ -240,51 +240,16 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
       </section>
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">使用问题反馈</h2>
+        <h2 className="text-[0.95rem] font-semibold text-ink">帮助与反馈</h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          导入失败、显示异常等，写几句即可。匿名提交，后台可直接看到。
-        </p>
-        <form onSubmit={onSubmitFeedback} className="mt-3 space-y-2.5">
-          <textarea
-            value={fbContent}
-            onChange={(e) => setFbContent(e.target.value)}
-            rows={3}
-            maxLength={2000}
-            required
-            placeholder="例如：某学院 PDF 识别不出课程…"
-            className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
-          />
-          <input
-            type="text"
-            value={fbContact}
-            onChange={(e) => setFbContact(e.target.value)}
-            maxLength={120}
-            placeholder="选填：QQ / 微信号，方便回访"
-            className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
-          />
-          {fbErr && <p className="text-sm text-expired">{fbErr}</p>}
-          {fbMsg && <p className="text-sm text-brand-dark">{fbMsg}</p>}
-          <button
-            type="submit"
-            disabled={fbBusy || !fbContent.trim()}
-            className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {fbBusy ? '提交中…' : '提交反馈'}
-          </button>
-        </form>
-      </section>
-
-      <section className="mt-3 rounded-2xl border border-line bg-white p-4">
-        <h2 className="text-[0.95rem] font-semibold text-ink">联系我们</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          使用有问题可以联系客服和加入维护群，校园信息发布可点击 QQ 频道发布。
+          导入失败、显示异常可直接留言；也可加群联系维护同学。
         </p>
         <div className="mt-3 flex gap-2">
           <a
             href="https://qm.qq.com/q/iy0gyxKnrq"
             target="_blank"
             rel="noopener noreferrer"
-            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2.5 text-center text-[0.8rem] font-medium text-ink active:opacity-70"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2 text-center text-[0.78rem] font-medium text-ink active:opacity-70"
           >
             QQ 客服
           </a>
@@ -292,19 +257,49 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             href="https://qm.qq.com/q/ZwGz3jrQis"
             target="_blank"
             rel="noopener noreferrer"
-            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2.5 text-center text-[0.8rem] font-medium text-ink active:opacity-70"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2 text-center text-[0.78rem] font-medium text-ink active:opacity-70"
           >
-            QQ 维护群
+            维护群
           </a>
           <a
             href="https://pd.qq.com/s/6d36qjaxs?b=9"
             target="_blank"
             rel="noopener noreferrer"
-            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2.5 text-center text-[0.8rem] font-medium text-ink active:opacity-70"
+            className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-2 py-2 text-center text-[0.78rem] font-medium text-ink active:opacity-70"
           >
             QQ 频道
           </a>
         </div>
+        <form onSubmit={onSubmitFeedback} className="mt-3 space-y-2">
+          <textarea
+            value={fbContent}
+            onChange={(e) => setFbContent(e.target.value)}
+            rows={2}
+            maxLength={2000}
+            required
+            placeholder="留言反馈（如：某学院 PDF 识别不出…）"
+            className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={fbContact}
+              onChange={(e) => setFbContact(e.target.value)}
+              maxLength={120}
+              placeholder="选填 QQ/微信"
+              className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+            />
+            <button
+              type="submit"
+              disabled={fbBusy || !fbContent.trim()}
+              className="shrink-0 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {fbBusy ? '…' : '提交'}
+            </button>
+          </div>
+          {fbErr && <p className="text-sm text-expired">{fbErr}</p>}
+          {fbMsg && <p className="text-sm text-brand-dark">{fbMsg}</p>}
+        </form>
       </section>
 
       <section className="mt-3 rounded-2xl border border-line bg-white p-4 text-sm leading-relaxed text-muted">

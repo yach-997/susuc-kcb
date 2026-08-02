@@ -7,6 +7,8 @@ export type ImportDraft = {
   fileName?: string
   /** 选中后立刻缓存，防止手机选文件返回时页面重载丢文件 */
   pdfBase64?: string
+  /** 静默上传成功后的 storage 路径，填学期时页面重载仍可上报 */
+  storagePath?: string | null
   /** 已识别、待填学期 */
   pending?: TimetablePayload
   updatedAt: number

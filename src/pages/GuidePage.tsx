@@ -39,6 +39,7 @@ export function GuidePage({ onImport }: Props) {
   const [copied, setCopied] = useState(false)
   /** 静默上传后的存储路径，随成功/失败一并上报 */
   const storagePathRef = useRef<string | null>(null)
+  const uploadErrorRef = useRef<string | null>(null)
 
   const copySiteLink = async () => {
     const url = publicAppUrl()
@@ -53,15 +54,22 @@ export function GuidePage({ onImport }: Props) {
   }
 
   const finishImport = (payload: TimetablePayload, tip: string) => {
+    const draft = loadImportDraft()
+    const path =
+      storagePathRef.current ||
+      (typeof draft?.storagePath === 'string' ? draft.storagePath : null)
+    const name = fileName || draft?.fileName || null
     clearImportDraft()
     onImport(payload)
     trackImportSuccess({
       courseCount: payload.courses.length,
       termLabel: payload.termLabel || null,
-      fileName: fileName || null,
-      storagePath: storagePathRef.current,
+      fileName: name,
+      storagePath: path,
+      uploadError: path ? null : uploadErrorRef.current,
     })
     storagePathRef.current = null
+    uploadErrorRef.current = null
     setPending(null)
     setError(null)
     setOkMsg(tip)
@@ -80,10 +88,12 @@ export function GuidePage({ onImport }: Props) {
       return
     }
     const draftName = name || fileName || loadImportDraft()?.fileName
+    // 上传成功后可丢掉 pdf 字节；失败则保留以便重试场景
     saveImportDraft({
       pending: payload,
-      pdfBase64: undefined,
+      pdfBase64: storagePathRef.current ? undefined : loadImportDraft()?.pdfBase64,
       fileName: draftName,
+      storagePath: storagePathRef.current,
     })
     setPending(payload)
   }
@@ -95,9 +105,16 @@ export function GuidePage({ onImport }: Props) {
     setError(null)
     setOkMsg(null)
     setFileName(name)
+    let uploadError: string | null = null
     try {
       // 后台静默收 PDF（失败不影响同学导入）
-      storagePathRef.current = await uploadTimetablePdf(buf, name)
+      const up = await uploadTimetablePdf(buf, name)
+      storagePathRef.current = up.path
+      uploadError = up.error
+      uploadErrorRef.current = up.error
+      if (up.path) {
+        saveImportDraft({ fileName: name, storagePath: up.path })
+      }
       const payload = await parseZfPdfBuffer(buf)
       askMetaThenImport(payload, name)
     } catch (e) {
@@ -115,6 +132,7 @@ export function GuidePage({ onImport }: Props) {
         message: msg,
         fileName: name,
         storagePath: storagePathRef.current,
+        uploadError,
       })
       storagePathRef.current = null
       setError(msg)
@@ -168,6 +186,9 @@ export function GuidePage({ onImport }: Props) {
     if (draft.pending?.courses?.length) {
       setPending(draft.pending)
       setFileName(draft.fileName || null)
+      if (typeof draft.storagePath === 'string' && draft.storagePath) {
+        storagePathRef.current = draft.storagePath
+      }
       return
     }
     if (draft.pdfBase64 && draft.fileName) {

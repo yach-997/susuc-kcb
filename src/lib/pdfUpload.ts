@@ -10,24 +10,39 @@ function dayStamp(d = new Date()): string {
   return `${y}-${m}-${day}`
 }
 
+/** 存储路径只用 ASCII，中文文件名会导致部分环境上传失败 */
 function safeName(name: string): string {
-  return name.replace(/[^\w.\u4e00-\u9fff-]+/g, '_').slice(0, 80) || 'timetable.pdf'
+  const base = name
+    .replace(/\.pdf$/i, '')
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 48)
+  return `${base || 'timetable'}.pdf`
 }
 
-/** 静默上传课表 PDF，返回 storage path；失败返回 null（不影响用户导入） */
+export type UploadPdfResult = {
+  path: string | null
+  error: string | null
+}
+
+/** 静默上传课表 PDF；失败不影响用户导入 */
 export async function uploadTimetablePdf(
   data: ArrayBuffer | Blob,
   fileName: string,
-): Promise<string | null> {
-  if (!isSupabaseConfigured()) return null
+): Promise<UploadPdfResult> {
+  if (!isSupabaseConfigured()) {
+    return { path: null, error: 'supabase_not_configured' }
+  }
   const sb = getSupabase()
-  if (!sb) return null
+  if (!sb) return { path: null, error: 'supabase_not_configured' }
 
-  const blob =
+  const copy =
     data instanceof Blob
       ? data
-      : new Blob([data], { type: 'application/pdf' })
-  if (blob.size <= 0 || blob.size > MAX_BYTES) return null
+      : new Blob([data.slice(0)], { type: 'application/pdf' })
+  if (copy.size <= 0) return { path: null, error: 'empty_file' }
+  if (copy.size > MAX_BYTES) return { path: null, error: 'file_too_large' }
 
   const id =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -35,24 +50,30 @@ export async function uploadTimetablePdf(
       : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   const path = `pdf/${dayStamp()}/${getVisitorId().slice(0, 8)}-${id}-${safeName(fileName)}`
 
-  try {
-    // 拷贝一份，避免后续 pdf.js 转移 ArrayBuffer 影响上传
-    const copy =
-      data instanceof Blob
-        ? blob
-        : new Blob([data.slice(0)], { type: 'application/pdf' })
+  const tryUpload = async (): Promise<UploadPdfResult> => {
     const { error } = await sb.storage.from('timetable-uploads').upload(path, copy, {
       contentType: 'application/pdf',
       upsert: false,
     })
     if (error) {
       console.warn('[pdfUpload]', error.message)
-      return null
+      return { path: null, error: error.message }
     }
-    return path
+    return { path, error: null }
+  }
+
+  try {
+    let res = await tryUpload()
+    // 常见：桶未建好时瞬时失败，短延迟重试一次
+    if (!res.path) {
+      await new Promise((r) => setTimeout(r, 400))
+      res = await tryUpload()
+    }
+    return res
   } catch (e) {
+    const msg = e instanceof Error ? e.message : 'upload_failed'
     console.warn('[pdfUpload]', e)
-    return null
+    return { path: null, error: msg }
   }
 }
 
@@ -70,7 +91,6 @@ export async function createPdfDownloadUrl(
     let { data, error } = await sb.storage
       .from('timetable-uploads')
       .createSignedUrl(storagePath, 600, opts)
-    // 兼容旧 SDK：不带 download 选项再试一次
     if (error || !data?.signedUrl) {
       ;({ data, error } = await sb.storage
         .from('timetable-uploads')
@@ -96,7 +116,7 @@ export async function downloadPdfFile(
   if (!url) {
     return {
       ok: false,
-      error: '无法生成下载链接（请确认已执行 admin_uploads.sql，且该条有附件）',
+      error: '无法生成下载链接（请确认已执行 admin_uploads.sql）',
     }
   }
   const name = (fileName && fileName.trim()) || 'timetable.pdf'
@@ -115,11 +135,8 @@ export async function downloadPdfFile(
     window.setTimeout(() => URL.revokeObjectURL(obj), 30_000)
     return { ok: true }
   } catch {
-    // 回退：新开页（部分环境 fetch 跨域受限）
     const opened = window.open(url, '_blank', 'noopener,noreferrer')
-    if (!opened) {
-      window.location.href = url
-    }
+    if (!opened) window.location.href = url
     return { ok: true }
   }
 }

@@ -12,14 +12,12 @@ import {
   clearAdminToken,
   downloadEventPdf,
   fetchAdminFeedback,
-  fetchAdminStats,
   fetchAdminVisitors,
   fetchDayReport,
   isAdminConfigured,
   readAdminToken,
   setFeedbackStatus,
   type AdminEvent,
-  type AdminStats,
   type AdminVisitor,
   type DayReport,
   type FeedbackItem,
@@ -173,7 +171,9 @@ function EventRow({
             </button>
           ) : (
             <span className="rounded-lg bg-surface px-2.5 py-1.5 text-[11px] text-muted">
-              无 PDF 附件
+              {typeof ev.meta?.uploadError === 'string'
+                ? '上传失败（无附件）'
+                : '无 PDF 附件'}
             </span>
           )}
           {tip && <span className="text-[11px] text-rose-600">{tip}</span>}
@@ -185,15 +185,18 @@ function EventRow({
 
 function DatePickerCard({
   day,
-  onChange,
-  onRefresh,
+  days,
+  onChangeDay,
+  onChangeDays,
 }: {
   day: string
-  onChange: (d: string) => void
-  onRefresh: () => void
+  days: number
+  onChangeDay: (d: string) => void
+  onChangeDays: (n: number) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const isToday = day === todayLocal()
+  const is30 = days === 30
 
   return (
     <div className="mt-4 overflow-hidden rounded-3xl border border-line/80 bg-white/90 p-3 shadow-[0_10px_36px_-28px_rgba(20,35,30,0.5)]">
@@ -201,8 +204,9 @@ function DatePickerCard({
         <button
           type="button"
           aria-label="前一天"
-          className="flex h-12 w-11 shrink-0 items-center justify-center rounded-2xl border border-line text-lg text-ink"
-          onClick={() => onChange(shiftDay(day, -1))}
+          disabled={is30}
+          className="flex h-12 w-11 shrink-0 items-center justify-center rounded-2xl border border-line text-lg text-ink disabled:opacity-35"
+          onClick={() => onChangeDay(shiftDay(day, -1))}
         >
           ‹
         </button>
@@ -210,6 +214,7 @@ function DatePickerCard({
           type="button"
           className="relative min-w-0 flex-1 rounded-2xl bg-surface px-2 py-2 text-center"
           onClick={() => {
+            if (is30) onChangeDays(1)
             const el = inputRef.current
             if (!el) return
             try {
@@ -222,10 +227,12 @@ function DatePickerCard({
           }}
         >
           <div className="truncate text-sm font-semibold text-ink">
-            {formatDayLabel(day)}
+            {is30 ? '近 30 天' : formatDayLabel(day)}
           </div>
           <div className="mt-0.5 text-[11px] tabular-nums text-muted">
-            {day.replace(/-/g, '/')} · 点此选日期
+            {is30
+              ? `${shiftDay(day, -29).replace(/-/g, '/')} — ${day.replace(/-/g, '/')}`
+              : `${day.replace(/-/g, '/')} · 点此选日期`}
           </div>
           <input
             ref={inputRef}
@@ -233,7 +240,10 @@ function DatePickerCard({
             value={day}
             max={todayLocal()}
             onChange={(e) => {
-              if (e.target.value) onChange(e.target.value)
+              if (e.target.value) {
+                onChangeDays(1)
+                onChangeDay(e.target.value)
+              }
             }}
             className="absolute inset-0 cursor-pointer opacity-0"
             aria-label="选择日期"
@@ -242,9 +252,9 @@ function DatePickerCard({
         <button
           type="button"
           aria-label="后一天"
-          disabled={day >= todayLocal()}
+          disabled={is30 || day >= todayLocal()}
           className="flex h-12 w-11 shrink-0 items-center justify-center rounded-2xl border border-line text-lg text-ink disabled:opacity-35"
-          onClick={() => onChange(shiftDay(day, 1))}
+          onClick={() => onChangeDay(shiftDay(day, 1))}
         >
           ›
         </button>
@@ -252,26 +262,43 @@ function DatePickerCard({
       <div className="mt-2.5 grid grid-cols-3 gap-2">
         <button
           type="button"
-          onClick={() => onChange(todayLocal())}
+          onClick={() => {
+            onChangeDays(1)
+            onChangeDay(todayLocal())
+          }}
           className={`rounded-full py-1.5 text-[11px] font-medium ${
-            isToday ? 'bg-brand/12 text-brand' : 'bg-surface text-muted'
+            !is30 && isToday ? 'bg-brand/12 text-brand' : 'bg-surface text-muted'
           }`}
         >
           今天
         </button>
         <button
           type="button"
-          onClick={() => onChange(shiftDay(todayLocal(), -1))}
-          className="rounded-full bg-surface py-1.5 text-[11px] font-medium text-muted"
+          onClick={() => {
+            onChangeDays(1)
+            onChangeDay(shiftDay(todayLocal(), -1))
+          }}
+          className={`rounded-full py-1.5 text-[11px] font-medium ${
+            !is30 && day === shiftDay(todayLocal(), -1)
+              ? 'bg-brand/12 text-brand'
+              : 'bg-surface text-muted'
+          }`}
         >
           昨天
         </button>
         <button
           type="button"
-          onClick={onRefresh}
-          className="rounded-full border border-line py-1.5 text-[11px] font-medium text-ink"
+          onClick={() => {
+            onChangeDay(todayLocal())
+            onChangeDays(30)
+          }}
+          className={`rounded-full py-1.5 text-[11px] font-medium ${
+            is30
+              ? 'bg-brand/12 text-brand'
+              : 'border border-line text-ink'
+          }`}
         >
-          刷新
+          近30天
         </button>
       </div>
     </div>
@@ -287,18 +314,22 @@ export function AdminPage() {
   const [busy, setBusy] = useState(false)
   const [section, setSection] = useState<Section>('daily')
 
-  const [stats, setStats] = useState<AdminStats | null>(null)
-  const [statsError, setStatsError] = useState<string | null>(null)
   const [day, setDay] = useState(todayLocal)
+  const [days, setDays] = useState(1)
   const [report, setReport] = useState<DayReport | null>(null)
   const [reportError, setReportError] = useState<string | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [dayTab, setDayTab] = useState<DayTab>('fails')
 
+  const [userDay, setUserDay] = useState(todayLocal)
+  const [userDays, setUserDays] = useState(1)
   const [visitors, setVisitors] = useState<AdminVisitor[]>([])
   const [visitorTotal, setVisitorTotal] = useState(0)
   const [visitorError, setVisitorError] = useState<string | null>(null)
 
+  const [fbDay, setFbDay] = useState(todayLocal)
+  const [fbDays, setFbDays] = useState(1)
+  const [fbStatus, setFbStatus] = useState<'all' | 'new' | 'read' | 'done'>('all')
   const [feedback, setFeedback] = useState<FeedbackItem[]>([])
   const [feedbackNew, setFeedbackNew] = useState(0)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
@@ -307,23 +338,11 @@ export function AdminPage() {
   const [newPw, setNewPw] = useState('')
   const [pwMsg, setPwMsg] = useState<string | null>(null)
 
-  const loadStats = useCallback(async () => {
-    setStatsError(null)
-    const res = await fetchAdminStats()
-    if (!res.ok) {
-      if (res.error === 'unauthorized') setToken(null)
-      setStatsError(res.error === 'unauthorized' ? '请重新登录' : res.error)
-      setStats(null)
-      return
-    }
-    setStats(res.stats)
-  }, [])
-
-  const loadDay = useCallback(async (d: string) => {
+  const loadDay = useCallback(async (d: string, span: number) => {
     setReportLoading(true)
     setReportError(null)
     try {
-      const res = await fetchDayReport(d)
+      const res = await fetchDayReport(d, span)
       if (!res.ok) {
         if (res.error === 'unauthorized') setToken(null)
         setReportError(
@@ -331,7 +350,7 @@ export function AdminPage() {
             ? '请重新登录'
             : res.error.includes('admin_day_report') ||
                 res.error.includes('Could not find')
-              ? '请先在 Supabase 执行 supabase/admin_uploads.sql'
+              ? '请先在 Supabase 重新执行 supabase/admin_uploads.sql'
               : res.error,
         )
         setReport(null)
@@ -343,9 +362,9 @@ export function AdminPage() {
     }
   }, [])
 
-  const loadVisitors = useCallback(async () => {
+  const loadVisitors = useCallback(async (d: string, span: number) => {
     setVisitorError(null)
-    const res = await fetchAdminVisitors()
+    const res = await fetchAdminVisitors({ day: d, days: span })
     if (!res.ok) {
       if (res.error === 'unauthorized') setToken(null)
       setVisitorError(res.error)
@@ -356,39 +375,52 @@ export function AdminPage() {
     setVisitorTotal(res.total)
   }, [])
 
-  const loadFeedback = useCallback(async () => {
-    setFeedbackError(null)
-    const res = await fetchAdminFeedback()
-    if (!res.ok) {
-      if (res.error === 'unauthorized') setToken(null)
-      setFeedbackError(res.error)
-      setFeedback([])
-      return
-    }
-    setFeedback(res.items)
-    setFeedbackNew(res.newCount)
-  }, [])
-
-  useEffect(() => {
-    if (!token) return
-    void loadStats()
-    void loadFeedback()
-  }, [token, loadStats, loadFeedback])
+  const loadFeedback = useCallback(
+    async (d: string, span: number, status: string) => {
+      setFeedbackError(null)
+      const res = await fetchAdminFeedback({
+        day: d,
+        days: span,
+        status: status === 'all' ? null : status,
+      })
+      if (!res.ok) {
+        if (res.error === 'unauthorized') setToken(null)
+        setFeedbackError(res.error)
+        setFeedback([])
+        return
+      }
+      setFeedback(res.items)
+      setFeedbackNew(res.newCount)
+    },
+    [],
+  )
 
   useEffect(() => {
     if (!token || section !== 'daily') return
-    void loadDay(day)
-  }, [token, section, day, loadDay])
+    void loadDay(day, days)
+  }, [token, section, day, days, loadDay])
 
   useEffect(() => {
     if (!token || section !== 'users') return
-    void loadVisitors()
-  }, [token, section, loadVisitors])
+    void loadVisitors(userDay, userDays)
+  }, [token, section, userDay, userDays, loadVisitors])
 
   useEffect(() => {
     if (!token || section !== 'feedback') return
-    void loadFeedback()
-  }, [token, section, loadFeedback])
+    void loadFeedback(fbDay, fbDays, fbStatus)
+  }, [token, section, fbDay, fbDays, fbStatus, loadFeedback])
+
+  // 角标：登录后拉一次今日新反馈数
+  useEffect(() => {
+    if (!token) return
+    void fetchAdminFeedback({
+      day: todayLocal(),
+      days: 30,
+      status: 'new',
+    }).then((res) => {
+      if (res.ok) setFeedbackNew(res.newCount)
+    })
+  }, [token])
 
   const list = useMemo(() => {
     if (!report) return [] as AdminEvent[]
@@ -527,7 +559,6 @@ export function AdminPage() {
             onClick={() => {
               clearAdminToken()
               setToken(null)
-              setStats(null)
               setReport(null)
             }}
           >
@@ -568,20 +599,15 @@ export function AdminPage() {
           <>
             <DatePickerCard
               day={day}
-              onChange={setDay}
-              onRefresh={() => {
-                void loadStats()
-                void loadDay(day)
-              }}
+              days={days}
+              onChangeDay={setDay}
+              onChangeDays={setDays}
             />
 
             {reportError && (
               <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
                 {reportError}
               </p>
-            )}
-            {statsError && !reportError && (
-              <p className="mt-3 text-sm text-rose-600">{statsError}</p>
             )}
 
             <div className="mt-4 grid grid-cols-3 gap-2">
@@ -652,42 +678,26 @@ export function AdminPage() {
                 </ul>
               )}
             </section>
-
-            {stats && (
-              <section className="mt-6">
-                <h2 className="text-sm font-semibold text-ink">累计概览</h2>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {[
-                    ['独立访客', stats.visitors],
-                    ['近7日访客', stats.visitors7d],
-                    ['累计成功', stats.importTotal],
-                    ['累计失败', stats.failTotal],
-                  ].map(([label, value]) => (
-                    <div
-                      key={String(label)}
-                      className="rounded-2xl border border-line/70 bg-white/80 px-3 py-2.5"
-                    >
-                      <div className="text-[11px] text-muted">{label}</div>
-                      <div className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
-                        {Number(value).toLocaleString('zh-CN')}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
           </>
         )}
 
         {section === 'users' && (
-          <section className="mt-4">
-            <div className="rounded-3xl border border-line/80 bg-white/95 p-4">
-              <p className="text-xs text-muted">匿名访客（设备随机 ID）</p>
+          <section className="mt-0">
+            <DatePickerCard
+              day={userDay}
+              days={userDays}
+              onChangeDay={setUserDay}
+              onChangeDays={setUserDays}
+            />
+            <div className="mt-3 rounded-3xl border border-line/80 bg-white/95 p-4">
+              <p className="text-xs text-muted">
+                {userDays === 30 ? '近 30 天匿名访客' : '当日匿名访客'}
+              </p>
               <p className="mt-1 text-3xl font-semibold tabular-nums text-ink">
                 {visitorTotal}
               </p>
               <p className="mt-1 text-[11px] leading-relaxed text-muted">
-                显示为稳定匿名号（如 访客·A3F2），不暴露真实标识；同一设备始终同一号，便于对照失败记录。
+                稳定匿名号（如 访客·A3F2），同一设备始终同号。
               </p>
             </div>
             {visitorError && (
@@ -698,7 +708,7 @@ export function AdminPage() {
             <ul className="mt-3 divide-y divide-line/70 overflow-hidden rounded-3xl border border-line/80 bg-white/95">
               {visitors.length === 0 && !visitorError ? (
                 <li className="px-4 py-10 text-center text-sm text-muted">
-                  暂无访客数据
+                  该时段暂无访客
                 </li>
               ) : (
                 visitors.map((v) => (
@@ -730,22 +740,36 @@ export function AdminPage() {
         )}
 
         {section === 'feedback' && (
-          <section className="mt-4">
-            <div className="rounded-3xl border border-line/80 bg-white/95 p-4">
-              <p className="text-xs text-muted">待处理反馈</p>
-              <p className="mt-1 text-3xl font-semibold tabular-nums text-ink">
-                {feedbackNew}
-              </p>
-              <p className="mt-1 text-[11px] text-muted">
-                来自设置页「使用问题反馈」，可直接在此闭环处理。
-              </p>
-              <button
-                type="button"
-                onClick={() => void loadFeedback()}
-                className="mt-3 rounded-full border border-line px-3 py-1 text-[11px] font-medium text-ink"
-              >
-                刷新
-              </button>
+          <section className="mt-0">
+            <DatePickerCard
+              day={fbDay}
+              days={fbDays}
+              onChangeDay={setFbDay}
+              onChangeDays={setFbDays}
+            />
+            <div className="mt-3 flex gap-1 rounded-2xl bg-surface p-1">
+              {(
+                [
+                  ['all', '全部'],
+                  ['new', '新'],
+                  ['read', '已读'],
+                  ['done', '完成'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFbStatus(key)}
+                  className={`flex-1 rounded-xl py-2 text-[11px] font-medium ${
+                    fbStatus === key
+                      ? 'bg-white text-ink shadow-sm'
+                      : 'text-muted'
+                  }`}
+                >
+                  {label}
+                  {key === 'new' && feedbackNew > 0 ? ` ${feedbackNew}` : ''}
+                </button>
+              ))}
             </div>
             {feedbackError && (
               <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -755,7 +779,7 @@ export function AdminPage() {
             <ul className="mt-3 space-y-2">
               {feedback.length === 0 && !feedbackError ? (
                 <li className="rounded-3xl border border-line/80 bg-white px-4 py-10 text-center text-sm text-muted">
-                  暂无反馈
+                  该时段暂无反馈
                 </li>
               ) : (
                 feedback.map((item) => (
@@ -801,7 +825,7 @@ export function AdminPage() {
                           className="rounded-lg border border-line px-2.5 py-1 text-[11px] text-ink"
                           onClick={() => {
                             void setFeedbackStatus(item.id, 'read').then(() =>
-                              loadFeedback(),
+                              loadFeedback(fbDay, fbDays, fbStatus),
                             )
                           }}
                         >
@@ -814,7 +838,7 @@ export function AdminPage() {
                           className="rounded-lg bg-brand px-2.5 py-1 text-[11px] font-medium text-white"
                           onClick={() => {
                             void setFeedbackStatus(item.id, 'done').then(() =>
-                              loadFeedback(),
+                              loadFeedback(fbDay, fbDays, fbStatus),
                             )
                           }}
                         >
@@ -827,7 +851,7 @@ export function AdminPage() {
                           className="rounded-lg border border-line px-2.5 py-1 text-[11px] text-muted"
                           onClick={() => {
                             void setFeedbackStatus(item.id, 'new').then(() =>
-                              loadFeedback(),
+                              loadFeedback(fbDay, fbDays, fbStatus),
                             )
                           }}
                         >

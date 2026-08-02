@@ -142,6 +142,7 @@ export async function fetchAdminStats(): Promise<
 
 export async function fetchDayReport(
   day: string,
+  days = 1,
 ): Promise<{ ok: true; report: DayReport } | { ok: false; error: string }> {
   const sb = getSupabase()
   const token = readAdminToken()
@@ -149,6 +150,7 @@ export async function fetchDayReport(
   const { data, error } = await sb.rpc('admin_day_report', {
     p_token: token,
     p_day: day,
+    p_days: days,
   })
   if (error) return { ok: false, error: error.message }
   const row = data as (DayReport & { ok?: boolean; error?: string }) | null
@@ -170,7 +172,10 @@ export async function fetchDayReport(
   }
 }
 
-export async function fetchAdminVisitors(): Promise<
+export async function fetchAdminVisitors(opts?: {
+  day?: string | null
+  days?: number
+}): Promise<
   | { ok: true; total: number; visitors: AdminVisitor[] }
   | { ok: false; error: string }
 > {
@@ -179,6 +184,8 @@ export async function fetchAdminVisitors(): Promise<
   if (!sb || !token) return { ok: false, error: 'unauthorized' }
   const { data, error } = await sb.rpc('admin_visitors', {
     p_token: token,
+    p_day: opts?.day ?? null,
+    p_days: opts?.days ?? 1,
     p_limit: 150,
   })
   if (error) {
@@ -208,7 +215,11 @@ export async function fetchAdminVisitors(): Promise<
   }
 }
 
-export async function fetchAdminFeedback(): Promise<
+export async function fetchAdminFeedback(opts?: {
+  day?: string | null
+  days?: number
+  status?: string | null
+}): Promise<
   | { ok: true; newCount: number; items: FeedbackItem[] }
   | { ok: false; error: string }
 > {
@@ -217,6 +228,9 @@ export async function fetchAdminFeedback(): Promise<
   if (!sb || !token) return { ok: false, error: 'unauthorized' }
   const { data, error } = await sb.rpc('admin_feedback_list', {
     p_token: token,
+    p_day: opts?.day ?? null,
+    p_status: opts?.status ?? null,
+    p_days: opts?.days ?? 1,
     p_limit: 100,
   })
   if (error) {

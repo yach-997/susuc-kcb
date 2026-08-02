@@ -1,4 +1,4 @@
--- 后台：用户列表 + 问题反馈
+-- 后台：用户列表 + 问题反馈（可按日筛选）
 -- Supabase SQL Editor 整段执行（需已有 admin.sql）
 
 -- 1) 反馈表
@@ -23,7 +23,6 @@ create policy feedback_insert_anon on public.user_feedback
   for insert to anon, authenticated
   with check (true);
 
--- 禁止 anon 直接读（走 RPC）
 drop policy if exists feedback_select_none on public.user_feedback;
 create policy feedback_select_none on public.user_feedback
   for select to anon, authenticated
@@ -68,8 +67,15 @@ $$;
 
 grant execute on function public.submit_feedback(text, text, text) to anon, authenticated;
 
--- 3) 后台：访客列表（匿名展示用 visitor_id）
-create or replace function public.admin_visitors(p_token text, p_limit int default 100)
+-- 3) 后台：访客列表（可按指定日 / 近 N 天）
+drop function if exists public.admin_visitors(text, int);
+drop function if exists public.admin_visitors(text, date, int);
+create or replace function public.admin_visitors(
+  p_token text,
+  p_day date default null,
+  p_days int default 1,
+  p_limit int default 100
+)
 returns json
 language plpgsql
 security definer
@@ -78,6 +84,9 @@ as $$
 declare
   sess boolean;
   lim int;
+  span int;
+  day_start timestamptz;
+  day_end timestamptz;
   total bigint;
   rows json;
 begin
@@ -91,41 +100,81 @@ begin
   end if;
 
   lim := greatest(1, least(coalesce(p_limit, 100), 300));
+  span := greatest(1, least(coalesce(p_days, 1), 90));
 
-  select count(distinct visitor_id) into total
-  from telemetry_events
-  where visitor_id is not null and visitor_id <> '';
+  if p_day is null then
+    select count(distinct visitor_id) into total
+    from telemetry_events
+    where visitor_id is not null and visitor_id <> '';
 
-  select coalesce(json_agg(row_to_json(t) order by t.last_seen desc), '[]'::json)
-    into rows
-  from (
-    select
-      visitor_id,
-      count(*)::int as event_count,
-      count(*) filter (where kind = 'page')::int as page_count,
-      count(*) filter (where kind = 'import')::int as import_count,
-      count(*) filter (where kind = 'import_fail')::int as fail_count,
-      min(created_at) as first_seen,
-      max(created_at) as last_seen
+    select coalesce(json_agg(row_to_json(t) order by t.last_seen desc), '[]'::json)
+      into rows
+    from (
+      select
+        visitor_id,
+        count(*)::int as event_count,
+        count(*) filter (where kind = 'page')::int as page_count,
+        count(*) filter (where kind = 'import')::int as import_count,
+        count(*) filter (where kind = 'import_fail')::int as fail_count,
+        min(created_at) as first_seen,
+        max(created_at) as last_seen
+      from telemetry_events
+      where visitor_id is not null and visitor_id <> ''
+      group by visitor_id
+      order by max(created_at) desc
+      limit lim
+    ) t;
+  else
+    day_end := ((p_day + 1)::timestamp AT TIME ZONE 'Asia/Shanghai');
+    day_start := (((p_day - (span - 1))::timestamp) AT TIME ZONE 'Asia/Shanghai');
+
+    select count(distinct visitor_id) into total
     from telemetry_events
     where visitor_id is not null and visitor_id <> ''
-    group by visitor_id
-    order by max(created_at) desc
-    limit lim
-  ) t;
+      and created_at >= day_start and created_at < day_end;
+
+    select coalesce(json_agg(row_to_json(t) order by t.last_seen desc), '[]'::json)
+      into rows
+    from (
+      select
+        visitor_id,
+        count(*)::int as event_count,
+        count(*) filter (where kind = 'page')::int as page_count,
+        count(*) filter (where kind = 'import')::int as import_count,
+        count(*) filter (where kind = 'import_fail')::int as fail_count,
+        min(created_at) as first_seen,
+        max(created_at) as last_seen
+      from telemetry_events
+      where visitor_id is not null and visitor_id <> ''
+        and created_at >= day_start and created_at < day_end
+      group by visitor_id
+      order by max(created_at) desc
+      limit lim
+    ) t;
+  end if;
 
   return json_build_object(
     'ok', true,
     'total', total,
+    'day', p_day,
+    'days', span,
     'visitors', rows
   );
 end;
 $$;
 
-grant execute on function public.admin_visitors(text, int) to anon, authenticated;
+grant execute on function public.admin_visitors(text, date, int, int) to anon, authenticated;
 
--- 4) 后台：反馈列表
-create or replace function public.admin_feedback_list(p_token text, p_limit int default 80)
+-- 4) 后台：反馈列表（可按日 + 状态）
+drop function if exists public.admin_feedback_list(text, int);
+drop function if exists public.admin_feedback_list(text, date, text, int);
+create or replace function public.admin_feedback_list(
+  p_token text,
+  p_day date default null,
+  p_status text default null,
+  p_days int default 1,
+  p_limit int default 80
+)
 returns json
 language plpgsql
 security definer
@@ -134,8 +183,12 @@ as $$
 declare
   sess boolean;
   lim int;
+  span int;
+  day_start timestamptz;
+  day_end timestamptz;
   new_count bigint;
   rows json;
+  st text;
 begin
   select exists (
     select 1 from public.admin_sessions
@@ -147,31 +200,61 @@ begin
   end if;
 
   lim := greatest(1, least(coalesce(p_limit, 80), 200));
+  span := greatest(1, least(coalesce(p_days, 1), 90));
+  st := nullif(trim(coalesce(p_status, '')), '');
+  if st is not null and st not in ('new', 'read', 'done', 'all') then
+    st := null;
+  end if;
+  if st = 'all' then st := null; end if;
 
-  select count(*) into new_count
-  from user_feedback
-  where status = 'new';
+  if p_day is null then
+    select count(*) into new_count from user_feedback where status = 'new';
 
-  select coalesce(json_agg(row_to_json(t) order by t.created_at desc), '[]'::json)
-    into rows
-  from (
-    select id, visitor_id, content, contact, status, created_at
+    select coalesce(json_agg(row_to_json(t)), '[]'::json)
+      into rows
+    from (
+      select id, visitor_id, content, contact, status, created_at
+      from user_feedback
+      where (st is null or status = st)
+      order by
+        case status when 'new' then 0 when 'read' then 1 else 2 end,
+        created_at desc
+      limit lim
+    ) t;
+  else
+    day_end := ((p_day + 1)::timestamp AT TIME ZONE 'Asia/Shanghai');
+    day_start := (((p_day - (span - 1))::timestamp) AT TIME ZONE 'Asia/Shanghai');
+
+    select count(*) into new_count
     from user_feedback
-    order by
-      case status when 'new' then 0 when 'read' then 1 else 2 end,
-      created_at desc
-    limit lim
-  ) t;
+    where status = 'new'
+      and created_at >= day_start and created_at < day_end;
+
+    select coalesce(json_agg(row_to_json(t)), '[]'::json)
+      into rows
+    from (
+      select id, visitor_id, content, contact, status, created_at
+      from user_feedback
+      where created_at >= day_start and created_at < day_end
+        and (st is null or status = st)
+      order by
+        case status when 'new' then 0 when 'read' then 1 else 2 end,
+        created_at desc
+      limit lim
+    ) t;
+  end if;
 
   return json_build_object(
     'ok', true,
     'newCount', new_count,
+    'day', p_day,
+    'days', span,
     'items', rows
   );
 end;
 $$;
 
-grant execute on function public.admin_feedback_list(text, int) to anon, authenticated;
+grant execute on function public.admin_feedback_list(text, date, text, int, int) to anon, authenticated;
 
 -- 5) 后台：更新反馈状态
 create or replace function public.admin_feedback_set_status(
