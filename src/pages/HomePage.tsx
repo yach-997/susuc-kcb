@@ -4,6 +4,7 @@ import { AddCourseSheet } from '../components/AddCourseSheet'
 import { TermMetaForm } from '../components/TermMetaForm'
 import { TodayView } from '../components/TodayView'
 import { WeekView } from '../components/WeekView'
+import { isApplePhoneOrPad, isStandalonePwa } from '../lib/device'
 import {
   currentTeachingWeek,
   isBeforeTermStart,
@@ -126,6 +127,12 @@ export function HomePage({ data, onUpdate }: Props) {
   })()
 
   const canAdd = !!(data && data.courses.length > 0 && !needTermMeta)
+  const onApple = isApplePhoneOrPad()
+  const standalone = isStandalonePwa()
+  const showIosSafariTip =
+    onApple && !standalone && !!(data && data.courses.length > 0)
+  const showIosStandaloneEmptyTip =
+    onApple && standalone && (!data || data.courses.length === 0)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -155,6 +162,17 @@ export function HomePage({ data, onUpdate }: Props) {
           </button>
         </div>
       </header>
+
+      {showIosSafariTip && (
+        <div className="mx-3 mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[0.8rem] leading-relaxed text-amber-950">
+          苹果手机：浏览器里的课表和「主屏幕」图标不共用。添加到桌面后，请用桌面图标打开再导入一次。
+        </div>
+      )}
+      {showIosStandaloneEmptyTip && (
+        <div className="mx-3 mt-2 rounded-xl border border-brand/25 bg-brand-soft px-3 py-2.5 text-[0.8rem] leading-relaxed text-brand-dark">
+          请在此（桌面图标）导入课表，数据才会留在桌面打开的应用里。
+        </div>
+      )}
 
       {needTermMeta && data && (
         <div className="mx-3 mt-2">

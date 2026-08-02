@@ -1,20 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { isStandalonePwa } from '../lib/device'
 import { inAppBrowserKind, publicAppUrl } from '../lib/importDraft'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
-
-function isStandalone(): boolean {
-  try {
-    if (window.matchMedia('(display-mode: standalone)').matches) return true
-    const nav = window.navigator as Navigator & { standalone?: boolean }
-    if (nav.standalone) return true
-  } catch {
-    /* ignore */
-  }
-  return false
 }
 
 function detectKind(): 'wechat' | 'qq' | 'baidu' | 'ios' | 'android' | 'other' {
@@ -46,7 +36,11 @@ function deviceTips(kind: ReturnType<typeof detectKind>): string[] {
         '点「复制链接」，到系统浏览器粘贴打开后再添加桌面',
       ]
     case 'ios':
-      return ['点底部分享（方框↑）→「添加到主屏幕」']
+      return [
+        '推荐：先添加到主屏幕，再用桌面图标打开后导入课表',
+        '点底部分享（方框↑）→「添加到主屏幕」',
+        '注意：Safari 里导入的课表，加到桌面后看不到（苹果系统分开存），需在桌面图标里再导入一次',
+      ]
     case 'android':
       return [
         '先点「一键添加到桌面」',
@@ -67,12 +61,12 @@ export function AddToHomeButton() {
   const needCopy = kind === 'wechat' || kind === 'qq' || kind === 'baidu'
   const deferredRef = useRef<BeforeInstallPromptEvent | null>(null)
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(() => isStandalone())
+  const [done, setDone] = useState(() => isStandalonePwa())
   const [msg, setMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    if (isStandalone()) {
+    if (isStandalonePwa()) {
       setDone(true)
       return
     }
@@ -106,7 +100,7 @@ export function AddToHomeButton() {
       const deadline = Date.now() + 3000
       while (!deferredRef.current && Date.now() < deadline) {
         await new Promise((r) => window.setTimeout(r, 150))
-        if (isStandalone()) {
+        if (isStandalonePwa()) {
           setDone(true)
           setBusy(false)
           return

@@ -15,6 +15,7 @@ import {
 } from '../lib/importDraft'
 import { parseZfPdfBuffer } from '../lib/parsePdf'
 import { prefetchCriticalCmaps } from '../lib/pdfAssets'
+import { isApplePhoneOrPad, isStandalonePwa } from '../lib/device'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import { normalizeTermLabel, summarizeCourses } from '../lib/storage'
 import { uploadTimetablePdf } from '../lib/pdfUpload'
@@ -255,6 +256,13 @@ export function GuidePage({ onImport }: Props) {
       <p className="mt-1 text-sm text-muted leading-relaxed">
         上传教务导出的课表 PDF 文件（表格式 / 列表式均可）。识别后请填写学期与开学上课第 1 周星期一的日期。
       </p>
+
+      {isApplePhoneOrPad() && !isStandalonePwa() && (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[0.8rem] leading-relaxed text-amber-950">
+          苹果用户建议：先「添加到主屏幕」，用桌面图标打开后再导入。若先在 Safari
+          导入再加桌面，桌面里课表会是空的，需重新导入一次（系统限制，安卓无此问题）。
+        </div>
+      )}
 
       <section className="mt-5 rounded-2xl border border-line bg-white/90 p-4 shadow-sm">
         <div className="text-xs font-semibold text-brand">上传 PDF</div>
