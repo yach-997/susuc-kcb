@@ -9,12 +9,15 @@ import {
   adminChangePassword,
   adminLogin,
   clearAdminToken,
+  clearRememberedCreds,
   downloadEventPdf,
   fetchAdminFeedback,
   fetchAdminVisitors,
   fetchDayReport,
   isAdminConfigured,
   readAdminToken,
+  readRememberedCreds,
+  saveRememberedCreds,
   setFeedbackStatus,
   type AdminEvent,
   type AdminVisitor,
@@ -417,9 +420,11 @@ function DatePickerCard({
 
 export function AdminPage() {
   const configured = isAdminConfigured()
+  const remembered = readRememberedCreds()
   const [token, setToken] = useState<string | null>(() => readAdminToken())
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState(remembered?.username || 'admin')
+  const [password, setPassword] = useState(remembered?.password || '')
+  const [remember, setRemember] = useState(() => !!remembered)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [section, setSection] = useState<Section>('daily')
@@ -565,7 +570,12 @@ export function AdminPage() {
         setLoginError(res.error)
         return
       }
-      setPassword('')
+      if (remember) {
+        saveRememberedCreds(username, password)
+      } else {
+        clearRememberedCreds()
+        setPassword('')
+      }
       setToken(readAdminToken())
     } finally {
       setBusy(false)
@@ -581,6 +591,10 @@ export function AdminPage() {
       if (!res.ok) {
         setPwMsg(res.error)
         return
+      }
+      // 若勾选过记住密码，同步更新本地记住的新密码
+      if (readRememberedCreds()) {
+        saveRememberedCreds(username || 'admin', newPw)
       }
       setOldPw('')
       setNewPw('')
@@ -645,6 +659,15 @@ export function AdminPage() {
                 required
               />
             </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-line accent-brand"
+              />
+              记住账号密码（本机）
+            </label>
             {loginError && <p className="text-sm text-rose-600">{loginError}</p>}
             <button
               type="submit"
@@ -653,6 +676,9 @@ export function AdminPage() {
             >
               {busy ? '登录中…' : '进入后台'}
             </button>
+            <p className="text-center text-[11px] leading-relaxed text-muted">
+              登录后约 30 天内免重复登录；退出不会清除记住的账号。
+            </p>
           </form>
         </div>
       </div>

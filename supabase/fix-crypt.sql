@@ -53,7 +53,7 @@ begin
 
   tok := encode(gen_random_bytes(24), 'hex');
   insert into public.admin_sessions (token, expires_at)
-  values (tok, now() + interval '7 days');
+  values (tok, now() + interval '30 days');
 
   delete from public.admin_sessions where expires_at < now();
 

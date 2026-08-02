@@ -2,6 +2,7 @@ import { downloadPdfFile } from './pdfUpload'
 import { getSupabase, isSupabaseConfigured } from './supabase'
 
 const TOKEN_KEY = 'susuc-admin-token'
+const REMEMBER_KEY = 'susuc-admin-remember'
 
 export type AdminEvent = {
   id?: number
@@ -53,7 +54,10 @@ export function isAdminConfigured(): boolean {
 
 export function readAdminToken(): string | null {
   try {
-    return sessionStorage.getItem(TOKEN_KEY)
+    // 优先 localStorage：关标签/重启浏览器仍保持登录
+    return (
+      localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
+    )
   } catch {
     return null
   }
@@ -61,6 +65,7 @@ export function readAdminToken(): string | null {
 
 export function clearAdminToken() {
   try {
+    localStorage.removeItem(TOKEN_KEY)
     sessionStorage.removeItem(TOKEN_KEY)
   } catch {
     /* ignore */
@@ -69,7 +74,51 @@ export function clearAdminToken() {
 
 function saveAdminToken(token: string) {
   try {
-    sessionStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(TOKEN_KEY, token)
+    sessionStorage.removeItem(TOKEN_KEY)
+  } catch {
+    try {
+      sessionStorage.setItem(TOKEN_KEY, token)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export type RememberedCreds = { username: string; password: string }
+
+export function readRememberedCreds(): RememberedCreds | null {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY)
+    if (!raw) return null
+    const o = JSON.parse(raw) as Partial<RememberedCreds>
+    if (
+      typeof o.username === 'string' &&
+      o.username &&
+      typeof o.password === 'string'
+    ) {
+      return { username: o.username, password: o.password }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+export function saveRememberedCreds(username: string, password: string) {
+  try {
+    localStorage.setItem(
+      REMEMBER_KEY,
+      JSON.stringify({ username: username.trim(), password }),
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearRememberedCreds() {
+  try {
+    localStorage.removeItem(REMEMBER_KEY)
   } catch {
     /* ignore */
   }
