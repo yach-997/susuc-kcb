@@ -63,6 +63,15 @@ create policy timetable_uploads_select on storage.objects
     and public.has_pdf_grant(name)
   );
 
+-- 清理动态：前端用 Storage API 删除（禁止直接 DELETE storage.objects）
+drop policy if exists timetable_uploads_delete on storage.objects;
+create policy timetable_uploads_delete on storage.objects
+  for delete to anon, authenticated
+  using (
+    bucket_id = 'timetable-uploads'
+    and public.has_pdf_grant(name)
+  );
+
 -- 后台授权：校验 session 后放行短时 select
 create or replace function public.admin_authorize_pdf(p_token text, p_path text)
 returns json
@@ -194,17 +203,22 @@ $$;
 
 grant execute on function public.admin_day_report(text, date, int) to anon, authenticated;
 
--- 3) 清理动态：删埋点 + 关联 PDF（释放存储）
+-- 3) 清理动态：两阶段
+--    p_commit=false → 列出 PDF 路径并写入短时 grant（前端再用 Storage API 删文件）
+--    p_commit=true  → 删除埋点记录（须在 Storage API 删除成功后再调）
+-- 不可直接 DELETE storage.objects，否则会报
+-- "Direct deletion from storage tables is not allowed"
 create or replace function public.admin_clear_events(
   p_token text,
   p_day date default null,
   p_days int default 1,
-  p_all boolean default false
+  p_all boolean default false,
+  p_commit boolean default false
 )
 returns json
 language plpgsql
 security definer
-set search_path = public, storage
+set search_path = public
 as $$
 declare
   sess boolean;
@@ -213,7 +227,6 @@ declare
   day_end timestamptz;
   paths text[];
   event_count bigint;
-  pdf_count bigint;
 begin
   select exists (
     select 1 from public.admin_sessions
@@ -234,21 +247,37 @@ begin
         and (meta->>'storagePath') like 'pdf/%'
     ) s;
 
-    delete from storage.objects
-    where bucket_id = 'timetable-uploads'
-      and name = any(paths);
-    get diagnostics pdf_count = row_count;
+    select count(*)::bigint into event_count from telemetry_events;
+
+    if not coalesce(p_commit, false) then
+      delete from public.admin_pdf_grants where expires_at < now();
+      if cardinality(paths) > 0 then
+        insert into public.admin_pdf_grants (path, expires_at)
+        select unnest(paths), now() + interval '30 minutes'
+        on conflict (path) do update
+        set expires_at = excluded.expires_at;
+      end if;
+
+      return json_build_object(
+        'ok', true,
+        'commit', false,
+        'all', true,
+        'paths', to_json(paths),
+        'eventCount', event_count,
+        'pdfCount', coalesce(cardinality(paths), 0)
+      );
+    end if;
 
     delete from public.admin_pdf_grants where path = any(paths);
-
     delete from telemetry_events;
     get diagnostics event_count = row_count;
 
     return json_build_object(
       'ok', true,
+      'commit', true,
       'all', true,
       'eventCount', event_count,
-      'pdfCount', pdf_count
+      'pdfCount', coalesce(cardinality(paths), 0)
     );
   end if;
 
@@ -270,10 +299,30 @@ begin
       and (meta->>'storagePath') like 'pdf/%'
   ) s;
 
-  delete from storage.objects
-  where bucket_id = 'timetable-uploads'
-    and name = any(paths);
-  get diagnostics pdf_count = row_count;
+  select count(*)::bigint into event_count
+  from telemetry_events
+  where created_at >= day_start and created_at < day_end;
+
+  if not coalesce(p_commit, false) then
+    delete from public.admin_pdf_grants where expires_at < now();
+    if cardinality(paths) > 0 then
+      insert into public.admin_pdf_grants (path, expires_at)
+      select unnest(paths), now() + interval '30 minutes'
+      on conflict (path) do update
+      set expires_at = excluded.expires_at;
+    end if;
+
+    return json_build_object(
+      'ok', true,
+      'commit', false,
+      'all', false,
+      'day', p_day,
+      'days', span,
+      'paths', to_json(paths),
+      'eventCount', event_count,
+      'pdfCount', coalesce(cardinality(paths), 0)
+    );
+  end if;
 
   delete from public.admin_pdf_grants where path = any(paths);
 
@@ -283,13 +332,15 @@ begin
 
   return json_build_object(
     'ok', true,
+    'commit', true,
     'all', false,
     'day', p_day,
     'days', span,
     'eventCount', event_count,
-    'pdfCount', pdf_count
+    'pdfCount', coalesce(cardinality(paths), 0)
   );
 end;
 $$;
 
-grant execute on function public.admin_clear_events(text, date, int, boolean) to anon, authenticated;
+drop function if exists public.admin_clear_events(text, date, int, boolean);
+grant execute on function public.admin_clear_events(text, date, int, boolean, boolean) to anon, authenticated;

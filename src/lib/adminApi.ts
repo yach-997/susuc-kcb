@@ -146,6 +146,37 @@ export async function adminLogin(
   return { ok: true }
 }
 
+async function removeStoragePaths(
+  sb: NonNullable<ReturnType<typeof getSupabase>>,
+  paths: string[],
+): Promise<{ ok: true; pdfCount: number } | { ok: false; error: string }> {
+  const clean = paths
+    .map((p) => String(p || '').trim())
+    .filter((p) => p.startsWith('pdf/') && !p.includes('..'))
+  if (clean.length === 0) return { ok: true, pdfCount: 0 }
+
+  let pdfCount = 0
+  const chunkSize = 50
+  for (let i = 0; i < clean.length; i += chunkSize) {
+    const chunk = clean.slice(i, i + chunkSize)
+    const { data, error } = await sb.storage
+      .from('timetable-uploads')
+      .remove(chunk)
+    if (error) {
+      return {
+        ok: false,
+        error:
+          error.message.includes('not allowed') ||
+          error.message.includes('policy')
+            ? '请重新执行 supabase/admin_uploads.sql（需删除策略）'
+            : error.message,
+      }
+    }
+    pdfCount += Array.isArray(data) ? data.length : chunk.length
+  }
+  return { ok: true, pdfCount }
+}
+
 export async function clearAdminEvents(opts: {
   day?: string | null
   days?: number
@@ -157,11 +188,50 @@ export async function clearAdminEvents(opts: {
   const sb = getSupabase()
   const token = readAdminToken()
   if (!sb || !token) return { ok: false, error: 'unauthorized' }
-  const { data, error } = await sb.rpc('admin_clear_events', {
+
+  const baseArgs = {
     p_token: token,
     p_day: opts.all ? null : (opts.day ?? null),
     p_days: opts.days ?? 1,
     p_all: !!opts.all,
+  }
+
+  // 1) 准备：拿路径 + 短时授权（不删埋点）
+  const prep = await sb.rpc('admin_clear_events', {
+    ...baseArgs,
+    p_commit: false,
+  })
+  if (prep.error) {
+    return {
+      ok: false,
+      error:
+        prep.error.message.includes('admin_clear_events') ||
+        prep.error.message.includes('Could not find') ||
+        prep.error.message.includes('storage tables')
+          ? '请重新执行 supabase/admin_uploads.sql'
+          : prep.error.message,
+    }
+  }
+  const prepRow = prep.data as {
+    ok?: boolean
+    error?: string
+    paths?: string[]
+    eventCount?: number
+    all?: boolean
+  } | null
+  if (!prepRow?.ok) {
+    if (prepRow?.error === 'unauthorized') clearAdminToken()
+    return { ok: false, error: prepRow?.error || '清理失败' }
+  }
+
+  const paths = Array.isArray(prepRow.paths) ? prepRow.paths : []
+  const removed = await removeStoragePaths(sb, paths)
+  if (!removed.ok) return removed
+
+  // 2) 提交：删埋点
+  const { data, error } = await sb.rpc('admin_clear_events', {
+    ...baseArgs,
+    p_commit: true,
   })
   if (error) {
     return {
@@ -170,24 +240,28 @@ export async function clearAdminEvents(opts: {
         error.message.includes('admin_clear_events') ||
         error.message.includes('Could not find')
           ? '请重新执行 supabase/admin_uploads.sql'
-          : error.message,
+          : `PDF 已删，但记录清理失败：${error.message}`,
     }
   }
   const row = data as {
     ok?: boolean
     error?: string
     eventCount?: number
-    pdfCount?: number
     all?: boolean
   } | null
   if (!row?.ok) {
     if (row?.error === 'unauthorized') clearAdminToken()
-    return { ok: false, error: row?.error || '清理失败' }
+    return {
+      ok: false,
+      error: row?.error
+        ? `PDF 已删，但记录清理失败：${row.error}`
+        : 'PDF 已删，但记录清理失败',
+    }
   }
   return {
     ok: true,
     eventCount: Number(row.eventCount) || 0,
-    pdfCount: Number(row.pdfCount) || 0,
+    pdfCount: removed.pdfCount,
     all: !!row.all,
   }
 }
