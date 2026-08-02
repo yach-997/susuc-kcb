@@ -196,11 +196,36 @@ export async function clearAdminEvents(opts: {
     p_all: !!opts.all,
   }
 
+  const withTimeout = async <T,>(
+    p: PromiseLike<T>,
+    ms: number,
+    label: string,
+  ): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        Promise.resolve(p),
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`${label}超时（${Math.round(ms / 1000)}s）`)),
+            ms,
+          )
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
   // 1) 准备：拿路径 + 短时授权（不删埋点）
-  const prep = await sb.rpc('admin_clear_events', {
-    ...baseArgs,
-    p_commit: false,
-  })
+  const prep = await withTimeout(
+    sb.rpc('admin_clear_events', {
+      ...baseArgs,
+      p_commit: false,
+    }),
+    45000,
+    '准备清理',
+  )
   if (prep.error) {
     return {
       ok: false,
@@ -229,10 +254,14 @@ export async function clearAdminEvents(opts: {
   if (!removed.ok) return removed
 
   // 2) 提交：删埋点
-  const { data, error } = await sb.rpc('admin_clear_events', {
-    ...baseArgs,
-    p_commit: true,
-  })
+  const { data, error } = await withTimeout(
+    sb.rpc('admin_clear_events', {
+      ...baseArgs,
+      p_commit: true,
+    }),
+    45000,
+    '提交清理',
+  )
   if (error) {
     return {
       ok: false,

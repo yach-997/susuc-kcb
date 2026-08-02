@@ -444,6 +444,8 @@ export function AdminPage() {
   const [dayTab, setDayTab] = useState<DayTab>('fails')
   const [clearBusy, setClearBusy] = useState(false)
   const [clearMsg, setClearMsg] = useState<string | null>(null)
+  /** 清理全部：页内二次确认（避免手机浏览器 confirm 连弹无响应） */
+  const [clearAllArmed, setClearAllArmed] = useState(false)
 
   const [userDay, setUserDay] = useState(todayLocal)
   const [userDays, setUserDays] = useState(1)
@@ -848,7 +850,7 @@ export function AdminPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={clearBusy}
+                  disabled={clearBusy || clearAllArmed}
                   className="rounded-xl border border-line px-3 py-2 text-[11px] font-medium text-ink disabled:opacity-50"
                   onClick={() => {
                     const label =
@@ -856,14 +858,15 @@ export function AdminPage() {
                         ? '近 30 天'
                         : formatDayLabel(day)
                     if (
-                      !confirm(
+                      !window.confirm(
                         `确定清理「${label}」的全部动态？\n将同时删除该时段上传的课表 PDF，无法恢复。`,
                       )
                     ) {
                       return
                     }
                     setClearBusy(true)
-                    setClearMsg(null)
+                    setClearMsg('正在清理此时段…')
+                    setClearAllArmed(false)
                     void clearAdminEvents({ day, days, all: false })
                       .then((res) => {
                         if (!res.ok) {
@@ -875,47 +878,85 @@ export function AdminPage() {
                         )
                         void loadDay(day, days)
                       })
-                      .finally(() => setClearBusy(false))
-                  }}
-                >
-                  {clearBusy ? '清理中…' : '清理此时段'}
-                </button>
-                <button
-                  type="button"
-                  disabled={clearBusy}
-                  className="rounded-xl bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-700 disabled:opacity-50"
-                  onClick={() => {
-                    if (
-                      !confirm(
-                        '确定清理「全部历史」动态？\n所有打开/成功/失败记录与课表 PDF 都会删除，无法恢复。',
-                      )
-                    ) {
-                      return
-                    }
-                    if (!confirm('再确认一次：清空全部动态与 PDF？')) return
-                    setClearBusy(true)
-                    setClearMsg(null)
-                    void clearAdminEvents({ all: true })
-                      .then((res) => {
-                        if (!res.ok) {
-                          setClearMsg(res.error)
-                          return
-                        }
+                      .catch((e: unknown) => {
                         setClearMsg(
-                          `已清空全部：${res.eventCount} 条动态，${res.pdfCount} 个 PDF`,
+                          e instanceof Error ? e.message : '清理失败',
                         )
-                        void loadDay(day, days)
                       })
                       .finally(() => setClearBusy(false))
                   }}
                 >
-                  清理全部历史
+                  {clearBusy && !clearAllArmed ? '清理中…' : '清理此时段'}
                 </button>
+                {!clearAllArmed ? (
+                  <button
+                    type="button"
+                    disabled={clearBusy}
+                    className="rounded-xl bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-700 disabled:opacity-50"
+                    onClick={() => {
+                      setClearMsg(
+                        '将删除全部打开/成功/失败记录与课表 PDF，不可恢复。再点右侧「确认清空」。',
+                      )
+                      setClearAllArmed(true)
+                    }}
+                  >
+                    清理全部历史
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={clearBusy}
+                      className="rounded-xl bg-rose-600 px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-50"
+                      onClick={() => {
+                        setClearBusy(true)
+                        setClearMsg('正在清空全部历史…')
+                        void clearAdminEvents({ all: true })
+                          .then((res) => {
+                            if (!res.ok) {
+                              setClearMsg(res.error)
+                              return
+                            }
+                            setClearMsg(
+                              `已清空全部：${res.eventCount} 条动态，${res.pdfCount} 个 PDF`,
+                            )
+                            void loadDay(day, days)
+                          })
+                          .catch((e: unknown) => {
+                            setClearMsg(
+                              e instanceof Error ? e.message : '清理失败',
+                            )
+                          })
+                          .finally(() => {
+                            setClearBusy(false)
+                            setClearAllArmed(false)
+                          })
+                      }}
+                    >
+                      {clearBusy ? '清空中…' : '确认清空'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={clearBusy}
+                      className="rounded-xl border border-line px-3 py-2 text-[11px] font-medium text-muted disabled:opacity-50"
+                      onClick={() => {
+                        setClearAllArmed(false)
+                        setClearMsg(null)
+                      }}
+                    >
+                      取消
+                    </button>
+                  </>
+                )}
               </div>
               {clearMsg && (
                 <p
                   className={`mt-2 text-[11px] ${
-                    clearMsg.includes('已') ? 'text-brand' : 'text-rose-600'
+                    clearMsg.startsWith('已')
+                      ? 'text-brand'
+                      : clearMsg.startsWith('正在')
+                        ? 'text-muted'
+                        : 'text-rose-600'
                   }`}
                 >
                   {clearMsg}
