@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type FormEvent,
 } from 'react'
@@ -183,6 +182,27 @@ function EventRow({
   )
 }
 
+function parseIsoDay(iso: string): { y: number; m: number; d: number } {
+  const [y, m, d] = iso.split('-').map(Number)
+  return { y, m, d }
+}
+
+function toIsoDay(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function monthCells(y: number, m: number): Array<number | null> {
+  const first = new Date(y, m - 1, 1)
+  const startPad = first.getDay() // 0=周日
+  const daysInMonth = new Date(y, m, 0).getDate()
+  const cells: Array<number | null> = []
+  for (let i = 0; i < startPad; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
+}
+
+/** 自绘日历，避免华为等浏览器原生 date 弹层被裁切 */
 function DatePickerCard({
   day,
   days,
@@ -194,9 +214,32 @@ function DatePickerCard({
   onChangeDay: (d: string) => void
   onChangeDays: (n: number) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const parsed = parseIsoDay(day)
+  const [viewY, setViewY] = useState(parsed.y)
+  const [viewM, setViewM] = useState(parsed.m)
   const isToday = day === todayLocal()
   const is30 = days === 30
+  const today = todayLocal()
+  const todayParts = parseIsoDay(today)
+  const cells = monthCells(viewY, viewM)
+  const canNextMonth =
+    viewY < todayParts.y ||
+    (viewY === todayParts.y && viewM < todayParts.m)
+
+  const openSheet = () => {
+    const p = parseIsoDay(day)
+    setViewY(p.y)
+    setViewM(p.m)
+    if (is30) onChangeDays(1)
+    setOpen(true)
+  }
+
+  const shiftMonth = (delta: number) => {
+    const dt = new Date(viewY, viewM - 1 + delta, 1)
+    setViewY(dt.getFullYear())
+    setViewM(dt.getMonth() + 1)
+  }
 
   return (
     <div className="mt-4 overflow-hidden rounded-3xl border border-line/80 bg-white/90 p-3 shadow-[0_10px_36px_-28px_rgba(20,35,30,0.5)]">
@@ -212,19 +255,8 @@ function DatePickerCard({
         </button>
         <button
           type="button"
-          className="relative min-w-0 flex-1 rounded-2xl bg-surface px-2 py-2 text-center"
-          onClick={() => {
-            if (is30) onChangeDays(1)
-            const el = inputRef.current
-            if (!el) return
-            try {
-              el.showPicker?.()
-            } catch {
-              /* ignore */
-            }
-            el.focus()
-            el.click()
-          }}
+          className="min-w-0 flex-1 rounded-2xl bg-surface px-2 py-2 text-center"
+          onClick={openSheet}
         >
           <div className="truncate text-sm font-semibold text-ink">
             {is30 ? '近 30 天' : formatDayLabel(day)}
@@ -234,25 +266,11 @@ function DatePickerCard({
               ? `${shiftDay(day, -29).replace(/-/g, '/')} — ${day.replace(/-/g, '/')}`
               : `${day.replace(/-/g, '/')} · 点此选日期`}
           </div>
-          <input
-            ref={inputRef}
-            type="date"
-            value={day}
-            max={todayLocal()}
-            onChange={(e) => {
-              if (e.target.value) {
-                onChangeDays(1)
-                onChangeDay(e.target.value)
-              }
-            }}
-            className="absolute inset-0 cursor-pointer opacity-0"
-            aria-label="选择日期"
-          />
         </button>
         <button
           type="button"
           aria-label="后一天"
-          disabled={is30 || day >= todayLocal()}
+          disabled={is30 || day >= today}
           className="flex h-12 w-11 shrink-0 items-center justify-center rounded-2xl border border-line text-lg text-ink disabled:opacity-35"
           onClick={() => onChangeDay(shiftDay(day, 1))}
         >
@@ -293,14 +311,109 @@ function DatePickerCard({
             onChangeDays(30)
           }}
           className={`rounded-full py-1.5 text-[11px] font-medium ${
-            is30
-              ? 'bg-brand/12 text-brand'
-              : 'border border-line text-ink'
+            is30 ? 'bg-brand/12 text-brand' : 'border border-line text-ink'
           }`}
         >
           近30天
         </button>
       </div>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-3 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="选择日期"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line text-ink"
+                aria-label="上一月"
+                onClick={() => shiftMonth(-1)}
+              >
+                ‹
+              </button>
+              <div className="text-sm font-semibold text-ink">
+                {viewY}年{viewM}月
+              </div>
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line text-ink disabled:opacity-35"
+                aria-label="下一月"
+                disabled={!canNextMonth}
+                onClick={() => shiftMonth(1)}
+              >
+                ›
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] text-muted">
+              {['日', '一', '二', '三', '四', '五', '六'].map((w) => (
+                <div key={w} className="py-1">
+                  {w}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {cells.map((d, i) => {
+                if (d == null) {
+                  return <div key={`e-${i}`} className="h-10" />
+                }
+                const iso = toIsoDay(viewY, viewM, d)
+                const disabled = iso > today
+                const selected = !is30 && iso === day
+                const isTodayCell = iso === today
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      onChangeDays(1)
+                      onChangeDay(iso)
+                      setOpen(false)
+                    }}
+                    className={`h-10 rounded-xl text-sm tabular-nums transition disabled:opacity-25 ${
+                      selected
+                        ? 'bg-brand font-semibold text-white'
+                        : isTodayCell
+                          ? 'bg-brand/10 font-medium text-brand'
+                          : 'text-ink hover:bg-surface'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-2xl border border-line py-2.5 text-sm text-muted"
+                onClick={() => setOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-2xl bg-brand py-2.5 text-sm font-semibold text-white"
+                onClick={() => {
+                  onChangeDays(1)
+                  onChangeDay(todayLocal())
+                  setOpen(false)
+                }}
+              >
+                回到今天
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
