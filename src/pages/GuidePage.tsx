@@ -105,32 +105,33 @@ export function GuidePage({ onImport }: Props) {
     setError(null)
     setOkMsg(null)
     setFileName(name)
-    let uploadError: string | null = null
+    // 上传与解析并行；失败上报前必须等上传结束，否则后台会「无 PDF 附件」
+    const uploadPromise = uploadTimetablePdf(buf, name).then((up) => {
+      storagePathRef.current = up.path
+      uploadErrorRef.current = up.error
+      if (up.path) {
+        saveImportDraft({ fileName: name, storagePath: up.path })
+      }
+      return up
+    })
     try {
-      // 上传与解析并行，上传失败不影响同学导入
-      const uploadPromise = uploadTimetablePdf(buf, name).then((up) => {
-        storagePathRef.current = up.path
-        uploadErrorRef.current = up.error
-        uploadError = up.error
-        if (up.path) {
-          saveImportDraft({ fileName: name, storagePath: up.path })
-        }
-        return up
-      })
       const payload = await parseZfPdfBuffer(buf)
       await uploadPromise.catch(() => null)
       askMetaThenImport(payload, name)
     } catch (e) {
-      // 避免挂载恢复时反复自动重试失败文件
+      const up = await uploadPromise.catch(() => null)
+      const path = up?.path ?? storagePathRef.current
+      const uploadError = up?.error ?? uploadErrorRef.current
+      // 避免挂载恢复时反复自动重试失败文件；保留已上传路径供后台下载
       saveImportDraft({
         pdfBase64: undefined,
         fileName: name,
         pending: undefined,
-        storagePath: null,
+        storagePath: path,
       })
       setOkMsg(null)
       const raw = e instanceof Error ? e.message : String(e)
-      let msg =
+      const msg =
         raw.startsWith('PDF') ||
         raw.includes('识别') ||
         raw.includes('课表')
@@ -139,8 +140,8 @@ export function GuidePage({ onImport }: Props) {
       trackImportFail({
         message: msg,
         fileName: name,
-        storagePath: storagePathRef.current,
-        uploadError: uploadError ?? uploadErrorRef.current,
+        storagePath: path,
+        uploadError: path ? null : uploadError,
       })
       storagePathRef.current = null
       uploadErrorRef.current = null
