@@ -50,13 +50,11 @@ create policy telemetry_insert_anon on telemetry_events
   for insert to anon, authenticated
   with check (kind in ('page', 'import', 'import_fail'));
 
--- 重置为 admin / 123456（每次执行本脚本都会同步初始账密，便于找回）
+-- 仅首次写入初始账密 admin / 123456；重复执行不会覆盖已改密码
+-- 若需手动重置：update admin_auth set password_hash = extensions.crypt('新密码', extensions.gen_salt('bf')), updated_at = now() where id = 1;
 insert into admin_auth (id, username, password_hash)
 values (1, 'admin', extensions.crypt('123456', extensions.gen_salt('bf')))
-on conflict (id) do update
-set username = excluded.username,
-    password_hash = excluded.password_hash,
-    updated_at = now();
+on conflict (id) do nothing;
 
 drop function if exists public.admin_login(text);
 drop function if exists public.admin_login(text, text);
@@ -134,6 +132,9 @@ begin
   set password_hash = extensions.crypt(p_new, extensions.gen_salt('bf')),
       updated_at = now()
   where id = 1;
+
+  -- 改密后踢掉其他会话，只保留当前 token
+  delete from admin_sessions where token <> p_token;
 
   return json_build_object('ok', true);
 end;

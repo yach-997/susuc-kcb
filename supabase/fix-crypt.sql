@@ -14,12 +14,10 @@ create table if not exists public.admin_auth (
 alter table public.admin_auth add column if not exists username text;
 update public.admin_auth set username = 'admin' where username is null;
 
+-- 仅首次写入；重复执行不覆盖已有密码
 insert into public.admin_auth (id, username, password_hash)
 values (1, 'admin', extensions.crypt('123456', extensions.gen_salt('bf')))
-on conflict (id) do update
-set username = 'admin',
-    password_hash = extensions.crypt('123456', extensions.gen_salt('bf')),
-    updated_at = now();
+on conflict (id) do nothing;
 
 create table if not exists public.admin_sessions (
   token text primary key,
@@ -103,6 +101,8 @@ begin
   set password_hash = extensions.crypt(p_new, extensions.gen_salt('bf')),
       updated_at = now()
   where id = 1;
+
+  delete from public.admin_sessions where token <> p_token;
 
   return json_build_object('ok', true);
 end;

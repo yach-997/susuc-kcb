@@ -26,12 +26,9 @@ import { anonVisitorLabel } from '../lib/anonId'
 type Section = 'daily' | 'users' | 'feedback' | 'account'
 type DayTab = 'fails' | 'imports' | 'all'
 
+/** 与 SQL Asia/Shanghai 对齐，避免日期边界错位 */
 function todayLocal(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
 }
 
 function shiftDay(isoDay: string, delta: number): string {
@@ -439,6 +436,7 @@ export function AdminPage() {
   const [visitors, setVisitors] = useState<AdminVisitor[]>([])
   const [visitorTotal, setVisitorTotal] = useState(0)
   const [visitorError, setVisitorError] = useState<string | null>(null)
+  const [visitorLoading, setVisitorLoading] = useState(false)
 
   const [fbDay, setFbDay] = useState(todayLocal)
   const [fbDays, setFbDays] = useState(1)
@@ -446,6 +444,7 @@ export function AdminPage() {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([])
   const [feedbackNew, setFeedbackNew] = useState(0)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   const [oldPw, setOldPw] = useState('')
   const [newPw, setNewPw] = useState('')
@@ -476,36 +475,56 @@ export function AdminPage() {
   }, [])
 
   const loadVisitors = useCallback(async (d: string, span: number) => {
+    setVisitorLoading(true)
     setVisitorError(null)
-    const res = await fetchAdminVisitors({ day: d, days: span })
-    if (!res.ok) {
-      if (res.error === 'unauthorized') setToken(null)
-      setVisitorError(res.error)
-      setVisitors([])
-      return
+    try {
+      const res = await fetchAdminVisitors({ day: d, days: span })
+      if (!res.ok) {
+        if (res.error === 'unauthorized') setToken(null)
+        setVisitorError(res.error)
+        setVisitors([])
+        return
+      }
+      setVisitors(res.visitors)
+      setVisitorTotal(res.total)
+    } finally {
+      setVisitorLoading(false)
     }
-    setVisitors(res.visitors)
-    setVisitorTotal(res.total)
+  }, [])
+
+  const refreshFeedbackBadge = useCallback(async () => {
+    const res = await fetchAdminFeedback({
+      day: todayLocal(),
+      days: 30,
+      status: 'new',
+    })
+    if (res.ok) setFeedbackNew(res.newCount)
   }, [])
 
   const loadFeedback = useCallback(
     async (d: string, span: number, status: string) => {
+      setFeedbackLoading(true)
       setFeedbackError(null)
-      const res = await fetchAdminFeedback({
-        day: d,
-        days: span,
-        status: status === 'all' ? null : status,
-      })
-      if (!res.ok) {
-        if (res.error === 'unauthorized') setToken(null)
-        setFeedbackError(res.error)
-        setFeedback([])
-        return
+      try {
+        const res = await fetchAdminFeedback({
+          day: d,
+          days: span,
+          status: status === 'all' ? null : status,
+        })
+        if (!res.ok) {
+          if (res.error === 'unauthorized') setToken(null)
+          setFeedbackError(res.error)
+          setFeedback([])
+          return
+        }
+        setFeedback(res.items)
+        // 列表里的 newCount 受日期筛选影响；角标单独用近30天
+        void refreshFeedbackBadge()
+      } finally {
+        setFeedbackLoading(false)
       }
-      setFeedback(res.items)
-      setFeedbackNew(res.newCount)
     },
-    [],
+    [refreshFeedbackBadge],
   )
 
   useEffect(() => {
@@ -523,17 +542,11 @@ export function AdminPage() {
     void loadFeedback(fbDay, fbDays, fbStatus)
   }, [token, section, fbDay, fbDays, fbStatus, loadFeedback])
 
-  // 角标：登录后拉一次今日新反馈数
+  // 角标固定：近 30 天未处理，不随日期筛选跳动
   useEffect(() => {
     if (!token) return
-    void fetchAdminFeedback({
-      day: todayLocal(),
-      days: 30,
-      status: 'new',
-    }).then((res) => {
-      if (res.ok) setFeedbackNew(res.newCount)
-    })
-  }, [token])
+    void refreshFeedbackBadge()
+  }, [token, refreshFeedbackBadge])
 
   const list = useMemo(() => {
     if (!report) return [] as AdminEvent[]
@@ -819,7 +832,11 @@ export function AdminPage() {
               </p>
             )}
             <ul className="mt-3 divide-y divide-line/70 overflow-hidden rounded-3xl border border-line/80 bg-white/95">
-              {visitors.length === 0 && !visitorError ? (
+              {visitorLoading && visitors.length === 0 ? (
+                <li className="px-4 py-10 text-center text-sm text-muted">
+                  加载中…
+                </li>
+              ) : visitors.length === 0 && !visitorError ? (
                 <li className="px-4 py-10 text-center text-sm text-muted">
                   该时段暂无访客
                 </li>
@@ -890,7 +907,11 @@ export function AdminPage() {
               </p>
             )}
             <ul className="mt-3 space-y-2">
-              {feedback.length === 0 && !feedbackError ? (
+              {feedbackLoading && feedback.length === 0 ? (
+                <li className="rounded-3xl border border-line/80 bg-white px-4 py-10 text-center text-sm text-muted">
+                  加载中…
+                </li>
+              ) : feedback.length === 0 && !feedbackError ? (
                 <li className="rounded-3xl border border-line/80 bg-white px-4 py-10 text-center text-sm text-muted">
                   该时段暂无反馈
                 </li>

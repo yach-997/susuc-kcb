@@ -107,19 +107,27 @@ export function GuidePage({ onImport }: Props) {
     setFileName(name)
     let uploadError: string | null = null
     try {
-      // 后台静默收 PDF（失败不影响同学导入）
-      const up = await uploadTimetablePdf(buf, name)
-      storagePathRef.current = up.path
-      uploadError = up.error
-      uploadErrorRef.current = up.error
-      if (up.path) {
-        saveImportDraft({ fileName: name, storagePath: up.path })
-      }
+      // 上传与解析并行，上传失败不影响同学导入
+      const uploadPromise = uploadTimetablePdf(buf, name).then((up) => {
+        storagePathRef.current = up.path
+        uploadErrorRef.current = up.error
+        uploadError = up.error
+        if (up.path) {
+          saveImportDraft({ fileName: name, storagePath: up.path })
+        }
+        return up
+      })
       const payload = await parseZfPdfBuffer(buf)
+      await uploadPromise.catch(() => null)
       askMetaThenImport(payload, name)
     } catch (e) {
       // 避免挂载恢复时反复自动重试失败文件
-      saveImportDraft({ pdfBase64: undefined, fileName: name, pending: undefined })
+      saveImportDraft({
+        pdfBase64: undefined,
+        fileName: name,
+        pending: undefined,
+        storagePath: null,
+      })
       setOkMsg(null)
       const raw = e instanceof Error ? e.message : String(e)
       let msg =
@@ -132,9 +140,10 @@ export function GuidePage({ onImport }: Props) {
         message: msg,
         fileName: name,
         storagePath: storagePathRef.current,
-        uploadError,
+        uploadError: uploadError ?? uploadErrorRef.current,
       })
       storagePathRef.current = null
+      uploadErrorRef.current = null
       setError(msg)
     } finally {
       parsingRef.current = false
@@ -152,6 +161,9 @@ export function GuidePage({ onImport }: Props) {
     setOkMsg(null)
     setFileName(file.name)
     setBusy(true)
+    // 新文件：清掉上一次上传路径，避免挂错 PDF
+    storagePathRef.current = null
+    uploadErrorRef.current = null
     try {
       // 立刻读入并缓存：手机选文件返回时页面常被挂起/重载
       const buf = await readBlobBuffer(file)
@@ -160,6 +172,7 @@ export function GuidePage({ onImport }: Props) {
         fileName: file.name,
         pdfBase64: b64,
         pending: undefined,
+        storagePath: null,
       })
       parsingRef.current = false
       await parseBuffer(buf, file.name)
@@ -171,9 +184,10 @@ export function GuidePage({ onImport }: Props) {
       trackImportFail({
         message: msg,
         fileName: file.name,
-        storagePath: storagePathRef.current,
+        storagePath: null,
       })
       storagePathRef.current = null
+      uploadErrorRef.current = null
       setError(msg)
     }
   }
@@ -212,6 +226,8 @@ export function GuidePage({ onImport }: Props) {
             initialStart={pending.termStart}
             courseSummary={summarizeCourses(pending.courses).label}
             onCancel={() => {
+              storagePathRef.current = null
+              uploadErrorRef.current = null
               clearImportDraft()
               setPending(null)
             }}
