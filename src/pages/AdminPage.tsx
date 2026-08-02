@@ -279,44 +279,50 @@ function DatePickerCard({
         </button>
       </div>
       <div className="mt-2.5 grid grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            onChangeDays(1)
-            onChangeDay(todayLocal())
-          }}
-          className={`rounded-full py-1.5 text-[11px] font-medium ${
-            !is30 && isToday ? 'bg-brand/12 text-brand' : 'bg-surface text-muted'
-          }`}
-        >
-          今天
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            onChangeDays(1)
-            onChangeDay(shiftDay(todayLocal(), -1))
-          }}
-          className={`rounded-full py-1.5 text-[11px] font-medium ${
-            !is30 && day === shiftDay(todayLocal(), -1)
-              ? 'bg-brand/12 text-brand'
-              : 'bg-surface text-muted'
-          }`}
-        >
-          昨天
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            onChangeDay(todayLocal())
-            onChangeDays(30)
-          }}
-          className={`rounded-full py-1.5 text-[11px] font-medium ${
-            is30 ? 'bg-brand/12 text-brand' : 'border border-line text-ink'
-          }`}
-        >
-          近30天
-        </button>
+        {(
+          [
+            {
+              key: 'today',
+              label: '今天',
+              active: !is30 && isToday,
+              onClick: () => {
+                onChangeDays(1)
+                onChangeDay(todayLocal())
+              },
+            },
+            {
+              key: 'yesterday',
+              label: '昨天',
+              active: !is30 && day === shiftDay(todayLocal(), -1),
+              onClick: () => {
+                onChangeDays(1)
+                onChangeDay(shiftDay(todayLocal(), -1))
+              },
+            },
+            {
+              key: 'd30',
+              label: '近30天',
+              active: is30,
+              onClick: () => {
+                onChangeDay(todayLocal())
+                onChangeDays(30)
+              },
+            },
+          ] as const
+        ).map((btn) => (
+          <button
+            key={btn.key}
+            type="button"
+            onClick={btn.onClick}
+            className={`rounded-full py-1.5 text-[11px] font-semibold transition ${
+              btn.active
+                ? 'bg-brand text-white shadow-sm'
+                : 'bg-surface text-muted'
+            }`}
+          >
+            {btn.label}
+          </button>
+        ))}
       </div>
 
       {open && (
