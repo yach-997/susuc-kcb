@@ -1,62 +1,72 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
+import { getVisitorId } from '../lib/telemetry'
 import {
-  VISIT_BASE,
   VISIT_CACHE_REAL_KEY,
+  VISIT_CACHE_TODAY_KEY,
   VISIT_CACHE_TOTAL_KEY,
-  fakeVisitGrowth,
+  computeVisitTotal,
   formatVisitCount,
-  parseCounterValue,
   readStoredNumber,
   writeStoredNumber,
 } from '../lib/visitStats'
 
-const COUNTER_UP_URL =
-  'https://api.counterapi.dev/v1/susuc-kcb/pageviews/up'
-
 /** 整页刷新只计 1 次（避免 React StrictMode 双调用） */
 let hitLock = false
 
-async function hitRemoteCounter(): Promise<number | null> {
-  const ctrl = new AbortController()
-  const timer = window.setTimeout(() => ctrl.abort(), 5000)
+async function bumpSharedVisit(): Promise<{
+  realTotal: number
+  todayVisitors: number
+} | null> {
+  if (!isSupabaseConfigured()) return null
+  const sb = getSupabase()
+  if (!sb) return null
   try {
-    const res = await fetch(COUNTER_UP_URL, {
-      method: 'GET',
-      signal: ctrl.signal,
-      cache: 'no-store',
+    const { data, error } = await sb.rpc('bump_pageview', {
+      p_visitor_id: getVisitorId(),
     })
-    if (!res.ok) return null
-    const data: unknown = await res.json()
-    return parseCounterValue(data)
+    if (error) return null
+    const row = data as {
+      ok?: boolean
+      realTotal?: number
+      todayVisitors?: number
+    } | null
+    if (!row?.ok) return null
+    return {
+      realTotal: Math.max(0, Number(row.realTotal) || 0),
+      todayVisitors: Math.max(0, Number(row.todayVisitors) || 0),
+    }
   } catch {
     return null
-  } finally {
-    window.clearTimeout(timer)
   }
 }
 
-/**
- * 累计 = 1450 + 每日虚增 + 真实访问。
- * 真实访问优先走 CounterAPI（每次打开 +1）；失败则本地 real +1，保证刷新有变化。
- */
-function useVisitTotal(): number | null {
-  const fake = useMemo(() => fakeVisitGrowth(), [])
-  const [display, setDisplay] = useState<number | null>(() =>
+function useVisitStats(): {
+  total: number | null
+  todayVisitors: number | null
+} {
+  const [total, setTotal] = useState<number | null>(() =>
     readStoredNumber(VISIT_CACHE_TOTAL_KEY),
   )
+  const [todayVisitors, setTodayVisitors] = useState<number | null>(() =>
+    readStoredNumber(VISIT_CACHE_TODAY_KEY),
+  )
+  const floorTotal = useMemo(() => computeVisitTotal(0), [])
 
   useEffect(() => {
     let alive = true
 
-    const commit = (real: number) => {
+    const commit = (real: number, today: number) => {
       if (!alive) return
       const safeReal = Math.max(0, Math.floor(real))
+      const safeToday = Math.max(0, Math.floor(today))
       writeStoredNumber(VISIT_CACHE_REAL_KEY, safeReal)
-      const next = VISIT_BASE + fake + safeReal
-      const prev = readStoredNumber(VISIT_CACHE_TOTAL_KEY) ?? 0
-      // 展示不回退，避免切换计数源时数字突然变小
-      const shown = Math.max(next, prev)
-      setDisplay(shown)
+      writeStoredNumber(VISIT_CACHE_TODAY_KEY, safeToday)
+      const next = computeVisitTotal(safeReal)
+      // 不低于锚点虚增底数；允许从旧缓存 1855 升到 5836+
+      const shown = Math.max(next, floorTotal)
+      setTotal(shown)
+      setTodayVisitors(safeToday)
       writeStoredNumber(VISIT_CACHE_TOTAL_KEY, shown)
     }
 
@@ -65,18 +75,22 @@ function useVisitTotal(): number | null {
       hitLock = true
 
       const prevReal = readStoredNumber(VISIT_CACHE_REAL_KEY) ?? 0
-      const remote = await hitRemoteCounter()
+      const prevToday = readStoredNumber(VISIT_CACHE_TODAY_KEY) ?? 0
+      const remote = await bumpSharedVisit()
 
       if (!alive) return
 
-      if (remote != null && remote > 0) {
-        // 每次打开至少 +1；API 更大时以 API 为准（多端汇总）
-        commit(Math.max(remote, prevReal + 1))
+      if (remote) {
+        commit(remote.realTotal, remote.todayVisitors)
         return
       }
 
-      // API 失败：本地仍 +1，刷新能看到变化
-      commit(prevReal + 1)
+      // SQL 未执行 / 网络失败：只保证累计不低于锚点+虚增
+      const next = computeVisitTotal(prevReal)
+      const shown = Math.max(next, floorTotal)
+      setTotal(shown)
+      writeStoredNumber(VISIT_CACHE_TOTAL_KEY, shown)
+      if (prevToday > 0) setTodayVisitors(prevToday)
     }
 
     void run()
@@ -84,17 +98,23 @@ function useVisitTotal(): number | null {
     return () => {
       alive = false
     }
-  }, [fake])
+  }, [floorTotal])
 
-  return display
+  return { total, todayVisitors }
 }
 
 /** 底部导航上方：有无课表都常驻可见 */
 export function VisitCountHint() {
-  const total = useVisitTotal()
+  const { total, todayVisitors } = useVisitStats()
   return (
-    <p className="text-center text-[0.65rem] tabular-nums tracking-wide text-muted">
+    <p className="text-center text-[0.65rem] leading-relaxed tabular-nums tracking-wide text-muted">
       累计访问量 {total == null ? '…' : `${formatVisitCount(total)}次`}
+      {todayVisitors != null && (
+        <>
+          <span className="mx-1 text-line">·</span>
+          今日 {formatVisitCount(todayVisitors)} 人
+        </>
+      )}
     </p>
   )
 }

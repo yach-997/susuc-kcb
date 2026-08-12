@@ -1,15 +1,23 @@
-/** 累计访问展示：基础数 + 按日不规律虚增 + 真实访问（CounterAPI，失败则本地累加） */
+/** 累计访问：锚点 + 按日虚增(20–50) + Supabase 真实独立访客天数 */
 
-export const VISIT_BASE = 1450
+/** 2026-08-12 起展示锚点（当天虚增为 0） */
+export const VISIT_BASE = 5836
 
-/** 功能上线日（按本地日历，当天起算第 0 天不加虚增） */
-export const VISIT_FAKE_START = '2026-07-12'
+/** 虚增起始日（上海日历）；当天不算虚增，次日开始加 */
+export const VISIT_FAKE_START = '2026-08-12'
 
-/** 每日虚增序列，循环使用 */
-export const VISIT_FAKE_PATTERN = [10, 15, 8, 20] as const
+/**
+ * 每日虚增 20–50，不规律循环。
+ * 自起始日次日起按序累加。
+ */
+export const VISIT_FAKE_PATTERN = [
+  23, 41, 28, 35, 47, 22, 39, 31, 45, 26, 38, 50, 21, 33, 44, 29, 42, 36, 48,
+  24, 40, 27, 46, 32, 49, 25, 37, 30, 43, 34, 20,
+] as const
 
-export const VISIT_CACHE_TOTAL_KEY = 'susuc-visit-total'
-export const VISIT_CACHE_REAL_KEY = 'susuc-visit-real'
+export const VISIT_CACHE_TOTAL_KEY = 'susuc-visit-total-v3'
+export const VISIT_CACHE_REAL_KEY = 'susuc-visit-real-v3'
+export const VISIT_CACHE_TODAY_KEY = 'susuc-visit-today-v3'
 
 function startOfLocalDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -20,7 +28,7 @@ function parseLocalDate(iso: string): Date {
   return new Date(y, m - 1, day)
 }
 
-/** 自起始日到今天，已过去的整天数（今天尚未结束，虚增算到昨天） */
+/** 自起始日到今天已过去的整天数（今天尚未计入虚增） */
 export function daysElapsedSinceStart(
   startIso: string = VISIT_FAKE_START,
   now: Date = new Date(),
@@ -66,19 +74,6 @@ export function writeStoredNumber(key: string, n: number) {
   }
 }
 
-/** 解析 CounterAPI 返回值 */
-export function parseCounterValue(data: unknown): number | null {
-  if (data == null) return null
-  if (typeof data === 'number' && Number.isFinite(data)) return data
-  if (typeof data !== 'object') return null
-  const o = data as Record<string, unknown>
-  for (const k of ['value', 'count', 'Count', 'data']) {
-    const v = o[k]
-    if (typeof v === 'number' && Number.isFinite(v)) return v
-    if (v && typeof v === 'object') {
-      const nested = parseCounterValue(v)
-      if (nested != null) return nested
-    }
-  }
-  return null
+export function computeVisitTotal(realTotal: number, now: Date = new Date()): number {
+  return VISIT_BASE + fakeVisitGrowth(daysElapsedSinceStart(VISIT_FAKE_START, now)) + Math.max(0, Math.floor(realTotal))
 }
