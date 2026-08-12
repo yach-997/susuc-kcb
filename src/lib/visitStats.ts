@@ -12,9 +12,9 @@ export const VISIT_FAKE_PATTERN = [
   24, 40, 27, 46, 32, 49, 25, 37, 30, 43, 34, 20,
 ] as const
 
-export const VISIT_CACHE_TOTAL_KEY = 'susuc-visit-total-v4'
-export const VISIT_CACHE_REAL_KEY = 'susuc-visit-real-v4'
-export const VISIT_CACHE_TODAY_KEY = 'susuc-visit-today-v4'
+export const VISIT_CACHE_TOTAL_KEY = 'susuc-visit-total-v5'
+export const VISIT_CACHE_REAL_KEY = 'susuc-visit-real-v5'
+export const VISIT_CACHE_TODAY_KEY = 'susuc-visit-today-v5'
 
 function startOfLocalDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())

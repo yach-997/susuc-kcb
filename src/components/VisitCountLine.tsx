@@ -10,34 +10,34 @@ import {
   writeStoredNumber,
 } from '../lib/visitStats'
 
-/** 整页加载计 1 次（避免 React StrictMode 双调用把一次刷新算两次） */
+/** 整页加载只 bump 一次（避免 React StrictMode 双调用） */
 let hitLock = false
 
-async function bumpSharedVisit(): Promise<{
-  realTotal: number
-  todayViews: number
-} | null> {
+async function bumpSharedVisitOnce(): Promise<number | null> {
   if (!isSupabaseConfigured()) return null
   const sb = getSupabase()
   if (!sb) return null
-  try {
-    const { data, error } = await sb.rpc('bump_pageview', {
-      p_visitor_id: getVisitorId(),
-    })
-    if (error) return null
-    const row = data as {
-      ok?: boolean
-      realTotal?: number
-      todayVisitors?: number
-    } | null
-    if (!row?.ok) return null
-    return {
-      realTotal: Math.max(0, Number(row.realTotal) || 0),
-      todayViews: Math.max(0, Number(row.todayVisitors) || 0),
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { data, error } = await sb.rpc('bump_pageview', {
+        p_visitor_id: getVisitorId(),
+      })
+      if (error) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * attempt))
+        continue
+      }
+      const row = data as { ok?: boolean; realTotal?: number } | null
+      if (!row?.ok) {
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * attempt))
+        continue
+      }
+      return Math.max(0, Number(row.realTotal) || 0)
+    } catch {
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * attempt))
     }
-  } catch {
-    return null
   }
+  return null
 }
 
 function useVisitTotal(): number | null {
@@ -49,12 +49,14 @@ function useVisitTotal(): number | null {
   useEffect(() => {
     let alive = true
 
-    const commit = (real: number) => {
+    const apply = (real: number) => {
       if (!alive) return
       const safeReal = Math.max(0, Math.floor(real))
+      const prevShown = readStoredNumber(VISIT_CACHE_TOTAL_KEY) ?? 0
       writeStoredNumber(VISIT_CACHE_REAL_KEY, safeReal)
       const next = computeVisitTotal(safeReal)
-      const shown = Math.max(next, floorTotal)
+      // 展示不回退；真实次数以服务端为准
+      const shown = Math.max(next, floorTotal, prevShown)
       setTotal(shown)
       writeStoredNumber(VISIT_CACHE_TOTAL_KEY, shown)
     }
@@ -63,17 +65,18 @@ function useVisitTotal(): number | null {
       if (hitLock) return
       hitLock = true
 
-      const prevReal = readStoredNumber(VISIT_CACHE_REAL_KEY) ?? 0
-      const remote = await bumpSharedVisit()
-
+      const remote = await bumpSharedVisitOnce()
       if (!alive) return
 
-      if (remote) {
-        commit(remote.realTotal)
+      if (remote != null) {
+        apply(remote)
         return
       }
 
-      commit(prevReal + 1)
+      // 接口失败：只展示已缓存值，绝不本地瞎 +1（否则关开会「还原」）
+      const cached = readStoredNumber(VISIT_CACHE_TOTAL_KEY)
+      if (cached != null) setTotal(Math.max(cached, floorTotal))
+      else setTotal(floorTotal)
     }
 
     void run()
