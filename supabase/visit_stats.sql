@@ -1,4 +1,4 @@
--- 前台访问量：共享真实计数 + 今日独立访客
+-- 前台访问量：每次打开/刷新 +1；另按日统计今日次数
 -- Supabase SQL Editor 整段执行
 
 create table if not exists public.site_counters (
@@ -7,22 +7,18 @@ create table if not exists public.site_counters (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.site_visit_days (
-  visitor_id text not null,
-  day date not null,
-  created_at timestamptz not null default now(),
-  primary key (visitor_id, day)
+create table if not exists public.site_daily_views (
+  day date primary key,
+  views bigint not null default 0,
+  updated_at timestamptz not null default now()
 );
 
-create index if not exists site_visit_days_day_idx
-  on public.site_visit_days (day);
-
 insert into public.site_counters (id, value)
-values ('unique_days', 0)
+values ('pageviews', 0)
 on conflict (id) do nothing;
 
 alter table public.site_counters enable row level security;
-alter table public.site_visit_days enable row level security;
+alter table public.site_daily_views enable row level security;
 
 drop policy if exists site_counters_deny on public.site_counters;
 create policy site_counters_deny on public.site_counters
@@ -30,53 +26,42 @@ create policy site_counters_deny on public.site_counters
   using (false)
   with check (false);
 
-drop policy if exists site_visit_days_deny on public.site_visit_days;
-create policy site_visit_days_deny on public.site_visit_days
+drop policy if exists site_daily_views_deny on public.site_daily_views;
+create policy site_daily_views_deny on public.site_daily_views
   for all to anon, authenticated
   using (false)
   with check (false);
 
--- 每访客每天只给累计 +1；返回累计真实天数访问与今日人数
-create or replace function public.bump_pageview(p_visitor_id text)
+-- 兼容旧版：若曾建 site_visit_days 可保留，本函数不再依赖
+drop function if exists public.bump_pageview(text);
+drop function if exists public.bump_pageview();
+
+create or replace function public.bump_pageview(p_visitor_id text default null)
 returns json
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  vid text;
   d date;
-  inserted int;
   real_total bigint;
   today_n bigint;
 begin
-  vid := left(trim(coalesce(p_visitor_id, '')), 80);
-  if vid = '' or length(vid) < 8 then
-    vid := 'anon-unknown';
-  end if;
-
   d := (timezone('Asia/Shanghai', now()))::date;
 
-  insert into public.site_visit_days (visitor_id, day)
-  values (vid, d)
-  on conflict (visitor_id, day) do nothing;
-  get diagnostics inserted = row_count;
+  insert into public.site_counters (id, value, updated_at)
+  values ('pageviews', 1, now())
+  on conflict (id) do update
+  set value = public.site_counters.value + 1,
+      updated_at = excluded.updated_at
+  returning value into real_total;
 
-  if inserted > 0 then
-    insert into public.site_counters (id, value, updated_at)
-    values ('unique_days', 1, now())
-    on conflict (id) do update
-    set value = public.site_counters.value + 1,
-        updated_at = excluded.updated_at;
-  end if;
-
-  select coalesce(value, 0) into real_total
-  from public.site_counters
-  where id = 'unique_days';
-
-  select count(*)::bigint into today_n
-  from public.site_visit_days
-  where day = d;
+  insert into public.site_daily_views (day, views, updated_at)
+  values (d, 1, now())
+  on conflict (day) do update
+  set views = public.site_daily_views.views + 1,
+      updated_at = excluded.updated_at
+  returning views into today_n;
 
   return json_build_object(
     'ok', true,
