@@ -10,10 +10,10 @@ import {
   writeStoredNumber,
 } from '../lib/visitStats'
 
-/** 整页加载只 bump 一次（避免 React StrictMode 双调用） */
-let hitLock = false
+/** 同一次页面加载只打一次 RPC（StrictMode 双挂载复用同一 Promise） */
+let bumpPromise: Promise<number | null> | null = null
 
-async function bumpSharedVisitOnce(): Promise<number | null> {
+async function doBumpPageview(): Promise<number | null> {
   if (!isSupabaseConfigured()) return null
   const sb = getSupabase()
   if (!sb) return null
@@ -40,6 +40,11 @@ async function bumpSharedVisitOnce(): Promise<number | null> {
   return null
 }
 
+function bumpSharedVisitOnce(): Promise<number | null> {
+  if (!bumpPromise) bumpPromise = doBumpPageview()
+  return bumpPromise
+}
+
 function useVisitTotal(): number | null {
   const [total, setTotal] = useState<number | null>(() =>
     readStoredNumber(VISIT_CACHE_TOTAL_KEY),
@@ -61,11 +66,7 @@ function useVisitTotal(): number | null {
       writeStoredNumber(VISIT_CACHE_TOTAL_KEY, shown)
     }
 
-    const run = async () => {
-      if (hitLock) return
-      hitLock = true
-
-      const remote = await bumpSharedVisitOnce()
+    void bumpSharedVisitOnce().then((remote) => {
       if (!alive) return
 
       if (remote != null) {
@@ -77,9 +78,7 @@ function useVisitTotal(): number | null {
       const cached = readStoredNumber(VISIT_CACHE_TOTAL_KEY)
       if (cached != null) setTotal(Math.max(cached, floorTotal))
       else setTotal(floorTotal)
-    }
-
-    void run()
+    })
 
     return () => {
       alive = false
