@@ -239,6 +239,41 @@ export function weekMatches(course: Course, week: number | null): boolean {
   })
 }
 
+/** 页脚「(共N周)」；无字段时按周次区间推算（15 → 1，18-19 → 2） */
+export function countListedWeeks(weeks: string): number | null {
+  const segs = weeks
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (!segs.length) return null
+  let n = 0
+  for (const part of segs) {
+    const range = part.match(/(\d+)\s*[-~至]\s*(\d+)/)
+    if (range) {
+      n += Number(range[2]) - Number(range[1]) + 1
+      continue
+    }
+    if (part.match(/(\d+)/)) {
+      n += 1
+      continue
+    }
+    return null
+  }
+  return n > 0 ? n : null
+}
+
+export function formatFooterWeeks(weeks: string, spanWeeks?: number): string {
+  const raw = weeks.replace(/周$/, '').trim()
+  const inferred = countListedWeeks(raw)
+  const isRange = /[-~,~～至,]/.test(raw)
+  const label = isRange ? `${raw}周` : `第${raw}周`
+  // 「共1周」和「第15周」重复；只在教务写的总周数和列出的周次对不上时补一句
+  if (spanWeeks && inferred != null && spanWeeks !== inferred) {
+    return `${label}（共${spanWeeks}周）`
+  }
+  return label
+}
+
 /** 课表里出现过的最大周次（严格按数据，无默认 16/30 等上下限） */
 export function maxWeekFromCourses(courses: Course[]): number {
   let max = 0

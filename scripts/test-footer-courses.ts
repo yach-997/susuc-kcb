@@ -49,7 +49,8 @@ if (
   !practice ||
   practice.schedule !== 'unscheduled' ||
   practice.weekday !== 0 ||
-  practice.startSection !== 0
+  practice.startSection !== 0 ||
+  practice.spanWeeks !== 2
 ) {
   console.error('FAIL practice must be unscheduled with no fake slot', practice)
   process.exit(1)
@@ -59,9 +60,43 @@ if (
   other.schedule !== 'timed' ||
   other.weekday !== 3 ||
   other.startSection !== 7 ||
-  other.endSection !== 10
+  other.endSection !== 10 ||
+  other.spanWeeks !== 8
 ) {
   console.error('FAIL other must keep real 组班时间', other)
   process.exit(1)
 }
 console.log('PASS footer practice unscheduled + other timed')
+
+const fanItems: PdfTextItem[] = [
+  item('范林娜课表', 40, 800),
+  item('2026-2027学年第1学期', 40, 780),
+  item('星期一', 20, 700),
+  item('高等数学★', 80, 650),
+  item('(1-2节)1-16周/校区:宜宾/场地:A101/教师:张三', 80, 630),
+  item('星期二', 20, 500),
+  item('实践课程：工程训练(金工)D■张建平(共1周)/15周;', 40, 30, 3),
+  item('其他课程：认知实习■张程然(共1周)/19周/无;', 40, 28, 3),
+]
+const fan = parseZfPdfItems(fanItems)
+const jin = fan.courses.find((c) => c.name.includes('工程训练'))
+const renzhi = fan.courses.find((c) => c.name.includes('认知实习'))
+if (
+  !jin ||
+  jin.teacher !== '张建平' ||
+  /D张$/.test(jin.name) ||
+  jin.spanWeeks !== 1
+) {
+  console.error('FAIL 金工 teacher/name split', jin)
+  process.exit(1)
+}
+if (
+  !renzhi ||
+  renzhi.teacher !== '张程然' ||
+  renzhi.schedule !== 'unscheduled' ||
+  renzhi.spanWeeks !== 1
+) {
+  console.error('FAIL 认知实习', renzhi)
+  process.exit(1)
+}
+console.log('PASS fan linna footer name/teacher split')

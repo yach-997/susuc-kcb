@@ -7,6 +7,7 @@ import { WeekView } from '../components/WeekView'
 import { isApplePhoneOrPad, isStandalonePwa } from '../lib/device'
 import {
   currentTeachingWeek,
+  formatFooterWeeks,
   isBeforeTermStart,
   maxWeekFromCourses,
   normalizeTermLabel,
@@ -15,6 +16,45 @@ import {
   summarizeCourses,
 } from '../lib/storage'
 import type { Course, TimetablePayload } from '../types'
+
+function extraRoomLabel(room: string | undefined): string | null {
+  if (!room) return null
+  if (/无固定教室|见教务备注|未知教室/.test(room)) return null
+  return room
+}
+
+function ExtraCoursesBlock({
+  courses,
+  hint,
+}: {
+  courses: Course[]
+  hint: string
+}) {
+  if (!courses.length) return null
+  return (
+    <section className="mx-3 mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3">
+      <h2 className="text-sm font-semibold text-ink">实践 / 其他课程</h2>
+      <p className="mt-0.5 text-[0.7rem] text-muted">{hint}</p>
+      <ul className="mt-2 space-y-2">
+        {courses.map((c) => {
+          const room = extraRoomLabel(c.room)
+          return (
+            <li
+              key={c.id}
+              className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm"
+            >
+              <p className="font-medium text-ink">{c.name}</p>
+              <p className="mt-0.5 text-[0.75rem] text-muted">
+                {c.teacher} · {formatFooterWeeks(c.weeks, c.spanWeeks)}
+                {room ? ` · ${room}` : ''}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
 
 interface Props {
   data: TimetablePayload | null
@@ -222,29 +262,10 @@ export function HomePage({ data, onUpdate }: Props) {
                 onCourseClick={openEditManual}
                 onShowWeek={() => setTab('week')}
               />
-              {extraCourses.length > 0 && (
-                <section className="mx-3 mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3">
-                  <h2 className="text-sm font-semibold text-ink">实践 / 其他课程</h2>
-                  <p className="mt-0.5 text-[0.7rem] text-muted">
-                    教务页脚未写星期节次，只按周次列出，不会塞进课表格。
-                  </p>
-                  <ul className="mt-2 space-y-2">
-                    {extraCourses.map((c) => (
-                      <li
-                        key={c.id}
-                        className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm"
-                      >
-                        <p className="font-medium text-ink">{c.name}</p>
-                        <p className="mt-0.5 text-[0.75rem] text-muted">
-                          {c.teacher} · {c.weeks}周
-                          {c.room ? ` · ${c.room}` : ''}
-                          {' · 无固定星期/节次'}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
+              <ExtraCoursesBlock
+                courses={extraCourses}
+                hint="教务没写星期节次，只按周次列出，不会塞进课表格。"
+              />
               <p className="px-4 pb-3 text-center text-[0.7rem] text-muted">
                 补课/调课点右上角「加课」· 自加的课可点开修改
               </p>
@@ -257,29 +278,10 @@ export function HomePage({ data, onUpdate }: Props) {
                 termStart={data.termStart}
                 onCourseClick={openEditManual}
               />
-              {extraCourses.length > 0 && (
-                <section className="mx-3 mb-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3">
-                  <h2 className="text-sm font-semibold text-ink">实践 / 其他课程</h2>
-                  <p className="mt-0.5 text-[0.7rem] text-muted">
-                    无固定星期/节次，不进入上方课表格。
-                  </p>
-                  <ul className="mt-2 space-y-2">
-                    {extraCourses.map((c) => (
-                      <li
-                        key={c.id}
-                        className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-sm"
-                      >
-                        <p className="font-medium text-ink">{c.name}</p>
-                        <p className="mt-0.5 text-[0.75rem] text-muted">
-                          {c.teacher} · {c.weeks}周
-                          {c.room ? ` · ${c.room}` : ''}
-                          {' · 无固定星期/节次'}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
+              <ExtraCoursesBlock
+                courses={extraCourses}
+                hint="没写星期节次，不进入上方课表格。"
+              />
             </div>
           )}
         </>

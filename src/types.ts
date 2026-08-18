@@ -15,6 +15,8 @@ export interface Course {
   /** 周次描述，如 "1-16" / "1-8单" / "2-16双" / "5"（仅第5周） */
   weeks: string
   weekParity: WeekParity
+  /** 教务页脚「(共N周)」；仅实践/其他条目有 */
+  spanWeeks?: number
   /** 学生手动添加的补课/调课；重新导入 PDF 时会保留 */
   source?: 'import' | 'manual'
   /**

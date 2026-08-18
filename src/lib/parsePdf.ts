@@ -302,14 +302,22 @@ function splitGluedNameTeacher(raw: string): { name: string; teacher: string } {
     .replace(/^(实践课程|其他课程)\s*[：:]/, '')
     .replace(/^[\[【][^\]]*[\]】]/, '')
     .trim()
-  // 教师姓名多为 2～3 字，优先按 2 字再试 3 字拆开
+  // 教务用 ★☆■ 标学时类型，后面紧跟教师：工程训练(金工)D■张建平
+  const marked = s.match(/^(.*?)\s*[★☆■]+\s*([\u4e00-\u9fff·]{2,4})$/)
+  if (marked && marked[1].replace(/\s/g, '').length >= 2) {
+    return { name: marked[1].trim(), teacher: marked[2] }
+  }
+  const sClean = s.replace(/[★☆■]/g, '').trim()
+  // 教师多为 2～3 字；优先 2 字（IT项目实习黄洪），但避免把「张建平」拆成「…D张 / 建平」
   for (const n of [2, 3]) {
-    const m = s.match(new RegExp(`^(.*)([\\u4e00-\\u9fff·]{${n}})$`))
+    const m = sClean.match(new RegExp(`^(.*)([\\u4e00-\\u9fff·]{${n}})$`))
     if (m && m[1].replace(/\s/g, '').length >= 2) {
-      return { name: m[1].trim(), teacher: m[2] }
+      const name = m[1].trim()
+      if (n === 2 && /[A-Za-z0-9)）][\u4e00-\u9fff]$/.test(name)) continue
+      return { name, teacher: m[2] }
     }
   }
-  return { name: s, teacher: '未知教师' }
+  return { name: sClean, teacher: '未知教师' }
 }
 
 /**
@@ -352,14 +360,15 @@ function parsePracticeCoursesFromText(text: string): Course[] {
   if (/理论学时|实验学时|课程设计\s*★/.test(body) && !/\(共\d+周\)/.test(body)) {
     return courses
   }
-  const re = /([^;；]+?)\(共\d+周\)\s*\/\s*([^;；]+)/g
+  const re = /([^;；]+?)\(共(\d+)周\)\s*\/\s*([^;；]+)/g
   let m: RegExpExecArray | null
   while ((m = re.exec(body))) {
     const rawName = m[1].replace(/^实践课程\s*[：:]/, '').trim()
     if (!rawName || /理论学时|实验学时|图例/.test(rawName)) continue
     const { name, teacher } = splitGluedNameTeacher(rawName)
     if (name.length < 2) continue
-    const { weeks, parity } = parseWeeksField(m[2].trim())
+    const { weeks, parity } = parseWeeksField(m[3].trim())
+    const spanWeeks = Number(m[2])
     courses.push({
       id: uid(),
       name: cleanCourseName(`[实践]${name}`),
@@ -371,6 +380,7 @@ function parsePracticeCoursesFromText(text: string): Course[] {
       endSection: 0,
       weeks,
       weekParity: parity,
+      spanWeeks: Number.isFinite(spanWeeks) ? spanWeeks : undefined,
       source: 'import',
       schedule: 'unscheduled',
     })
@@ -391,23 +401,24 @@ function parseOtherCoursesFromText(text: string): Course[] {
 
   // 带组班上课时间的完整条目（标签可选）
   const reFull =
-    /(?:\[([^\]]+)\])?([^★☆\n/；;\[\]]{1,40}?)[★☆■]([^/(（]{0,20})\(共\d+周\)\s*\/\s*([^/]+)\s*\/\s*[^/]*\s*\/\s*组班上课\s*[：:]\s*第([\d\-~,~～至]+)周\s*星期([一二三四五六日天])\s*第([\d\-~,~～至]+)节\s*[；;]?\s*([^；;\n]*)/g
+    /(?:\[([^\]]+)\])?([^★☆\n/；;\[\]]{1,40}?)[★☆■]([^/(（]{0,20})\(共(\d+)周\)\s*\/\s*([^/]+)\s*\/\s*[^/]*\s*\/\s*组班上课\s*[：:]\s*第([\d\-~,~～至]+)周\s*星期([一二三四五六日天])\s*第([\d\-~,~～至]+)节\s*[；;]?\s*([^；;\n]*)/g
   let m: RegExpExecArray | null
   while ((m = reFull.exec(body))) {
     const tag = m[1] ? `[${m[1]}]` : ''
     const name = cleanCourseName(`${tag}${m[2]}`)
     if (!name || name.length < 2 || /其他课程|实践课程/.test(name)) continue
     const teacher = (m[3] || '').trim() || '未知教师'
+    const spanWeeks = Number(m[4])
     const weeksInfo = parseWeeksField(
-      m[5].includes('-') || /\d/.test(m[5]) ? m[5] : m[4],
+      m[6].includes('-') || /\d/.test(m[6]) ? m[6] : m[5],
     )
-    const weekday = WEEKDAY_MAP[m[6]] || 1
-    const secParts = m[7]
+    const weekday = WEEKDAY_MAP[m[7]] || 1
+    const secParts = m[8]
       .split(/[-~～至]/)
       .map((x) => Number(x.trim()))
       .filter(Boolean)
     const room =
-      (m[8] || '未知教室').trim().split(/请|电话|QQ/)[0].trim() || '未知教室'
+      (m[9] || '未知教室').trim().split(/请|电话|QQ/)[0].trim() || '未知教室'
     courses.push({
       id: uid(),
       name,
@@ -418,6 +429,7 @@ function parseOtherCoursesFromText(text: string): Course[] {
       endSection: secParts[1] || secParts[0] || 1,
       weeks: weeksInfo.weeks,
       weekParity: weeksInfo.parity,
+      spanWeeks: Number.isFinite(spanWeeks) ? spanWeeks : undefined,
       source: 'import',
       schedule: 'timed',
     })
@@ -426,12 +438,13 @@ function parseOtherCoursesFromText(text: string): Course[] {
   // 无「组班上课」时仍保留周次，但不伪造星期节次
   if (!courses.length) {
     const reLoose =
-      /(?:\[([^\]]+)\])?([^★☆\n/；;\[\]]{1,40}?)[★☆■]([^/(（]{0,20})\(共\d+周\)\s*\/\s*([^/;；]+)/g
+      /(?:\[([^\]]+)\])?([^★☆\n/；;\[\]]{1,40}?)[★☆■]([^/(（]{0,20})\(共(\d+)周\)\s*\/\s*([^/;；]+)/g
     while ((m = reLoose.exec(body))) {
       const tag = m[1] ? `[${m[1]}]` : ''
       const name = cleanCourseName(`${tag}${m[2]}`)
       if (!name || name.length < 2 || /其他课程|实践课程/.test(name)) continue
-      const { weeks, parity } = parseWeeksField(m[4])
+      const spanWeeks = Number(m[4])
+      const { weeks, parity } = parseWeeksField(m[5])
       courses.push({
         id: uid(),
         name,
@@ -442,6 +455,7 @@ function parseOtherCoursesFromText(text: string): Course[] {
         endSection: 0,
         weeks,
         weekParity: parity,
+        spanWeeks: Number.isFinite(spanWeeks) ? spanWeeks : undefined,
         source: 'import',
         schedule: 'unscheduled',
       })
