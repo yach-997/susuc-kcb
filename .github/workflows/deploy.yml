@@ -70,14 +70,9 @@ jobs:
             echo "同学只需收藏 https://susuc-kcb.shipstatic.com/ ，以后刷新即可。" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-                   bash scripts/deploy-shipstatic-ci.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          bash scripts/deploy-shipstatic-ci.sh | tee -a "$GITHUB_STEP_SUMMARY"
           echo "### 国内固定地址（同学收藏这一个）" >> "$GITHUB_STEP_SUMMARY"
           echo "https://${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}/" >> "$GITHUB_STEP_SUMMARY"
-          # -q 可能返回带 .shipstatic.com 的完整主机名
-          npx -y @shipstatic/ship domains set "$DOMAIN" "$DEPLOY_ID" --api-key "$SHIP_API_KEY" --json
-          echo "### 国内固定地址（同学收藏这一个）" >> "$GITHUB_STEP_SUMMARY"
-          echo "https://${DOMAIN%/}/" >> "$GITHUB_STEP_SUMMARY"
-          echo "本次部署：${DEPLOY_ID}" >> "$GITHUB_STEP_SUMMARY"
 
   deploy-pages:
     needs: build
