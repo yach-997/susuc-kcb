@@ -81,7 +81,9 @@ export async function pickCloudIdentityFromPasswordManager(): Promise<{
     const cred = (await navigator.credentials.get({
       password: true,
       mediation: 'optional',
-    })) as (Credential & { id?: string; password?: string }) | null
+    } as CredentialRequestOptions)) as
+      | (Credential & { id?: string; password?: string })
+      | null
     if (!cred?.id || !looksLikeStudentId(cred.id)) return null
     const name = normalizeStudentName(cred.password || '')
     if (name.length < 2) return null
