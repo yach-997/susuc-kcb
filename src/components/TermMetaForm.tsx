@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { DatePickField } from './DatePickField'
 import {
   guessTermLabel,
   normalizeTermLabel,
@@ -68,7 +69,7 @@ export function TermMetaForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-line bg-white/95 p-4 shadow-sm animate-slide-up"
+      className="min-w-0 max-w-full rounded-2xl border border-line bg-white/95 p-4 shadow-sm"
     >
       <div className="text-xs font-semibold text-brand">还差一步</div>
       <h2 className="mt-1 text-lg font-semibold text-ink">填写学期信息</h2>
@@ -102,19 +103,14 @@ export function TermMetaForm({
         <p className="mt-0.5 text-xs font-normal text-muted">
           请填校历上第 1 周的星期一；若填了别的天，会自动对齐到那周周一
         </p>
-        {/* iOS Safari 的 date 控件自带宽最小宽度，必须包一层截断 */}
-        <div className="field-shell mt-1.5">
-          <input
-            id="term-start"
-            type="date"
-            value={termStart}
-            onChange={(e) => {
-              setTermStart(e.target.value)
-              setError(null)
-            }}
-            className="field-control"
-          />
-        </div>
+        <DatePickField
+          id="term-start"
+          value={termStart}
+          onChange={(iso) => {
+            setTermStart(iso)
+            setError(null)
+          }}
+        />
       </div>
       {mondayHint && (
         <p className="mt-1 text-xs text-brand-dark">{mondayHint}</p>
