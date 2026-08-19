@@ -124,10 +124,12 @@ export function loadTimetable(): TimetablePayload | null {
 
 export function saveTimetable(payload: TimetablePayload): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-  void import('./studentCloud').then(({ backupStudentTimetable, rememberCloudIdentity }) => {
-    void rememberCloudIdentity(payload.studentId || '', payload.studentName || '')
-    return backupStudentTimetable(payload)
-  })
+  void import('./studentCloud').then(
+    ({ backupStudentTimetable, rememberCloudIdentity, CLOUD_LOGIN_PASSWORD }) => {
+      void rememberCloudIdentity(payload.studentId || '', CLOUD_LOGIN_PASSWORD)
+      return backupStudentTimetable(payload)
+    },
+  )
 }
 
 export function clearTimetable(): void {

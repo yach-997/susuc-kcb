@@ -34,9 +34,7 @@ function CloudIdForm({
   const [studentId, setStudentId] = useState(
     data.studentId || remembered.studentId,
   )
-  const [studentName, setStudentName] = useState(
-    data.studentName || remembered.studentName,
-  )
+  const [studentName, setStudentName] = useState(data.studentName || '')
   return (
     <form
       className="mt-2 space-y-1.5"

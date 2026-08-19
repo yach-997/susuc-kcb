@@ -1,4 +1,4 @@
--- 课表云端备份：学号 + 姓名找回
+-- 课表云端备份：账号（学号）+ 密码 123456 找回
 -- Supabase SQL Editor 整段执行
 
 create table if not exists public.student_cloud (
@@ -72,9 +72,12 @@ begin
 end;
 $$;
 
+-- 旧版按姓名找回，换成账号 + 密码 123456
+drop function if exists public.restore_student_timetable(text, text);
+
 create or replace function public.restore_student_timetable(
   p_student_id text,
-  p_student_name text
+  p_password text
 )
 returns json
 language plpgsql
@@ -83,13 +86,13 @@ set search_path = public
 as $$
 declare
   sid text;
-  sname text;
+  pwd text;
   hit_bucket timestamptz;
   hit int;
   rec public.student_cloud%rowtype;
 begin
   sid := regexp_replace(upper(trim(coalesce(p_student_id, ''))), '\s+', '', 'g');
-  sname := regexp_replace(trim(coalesce(p_student_name, '')), '\s+', '', 'g');
+  pwd := coalesce(p_password, '');
   hit_bucket := date_trunc('hour', now());
 
   insert into public.student_restore_hits (student_id, bucket, hits)
@@ -102,16 +105,18 @@ begin
     return json_build_object('ok', false, 'error', 'too_many');
   end if;
 
-  if sid !~ '^[0-9A-Z]{8,16}$' or char_length(sname) < 2 then
+  if sid !~ '^[0-9A-Z]{8,16}$' then
+    return json_build_object('ok', false, 'error', 'mismatch');
+  end if;
+
+  -- 统一默认密码，方便浏览器「保存密码」一键填入
+  if pwd is distinct from '123456' then
     return json_build_object('ok', false, 'error', 'mismatch');
   end if;
 
   select * into rec from public.student_cloud where student_id = sid;
   if not found then
     return json_build_object('ok', false, 'error', 'missing');
-  end if;
-  if rec.student_name is distinct from sname then
-    return json_build_object('ok', false, 'error', 'mismatch');
   end if;
 
   return json_build_object('ok', true, 'payload', rec.payload);

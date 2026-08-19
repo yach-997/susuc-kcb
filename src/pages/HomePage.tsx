@@ -74,9 +74,7 @@ function CloudIdPrompt({
   const [studentId, setStudentId] = useState(
     data.studentId || remembered.studentId,
   )
-  const [studentName, setStudentName] = useState(
-    data.studentName || remembered.studentName,
-  )
+  const [studentName, setStudentName] = useState(data.studentName || '')
   return (
     <form
       className="mx-3 mt-2 rounded-xl border border-line bg-white px-3 py-2.5"

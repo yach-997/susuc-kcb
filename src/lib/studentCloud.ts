@@ -3,29 +3,38 @@ import { getSupabase, isSupabaseConfigured } from './supabase'
 
 export const JUST_IMPORTED_KEY = 'susuc-just-imported'
 export const RESTORED_TIP_KEY = 'susuc-restored-tip'
+/** 云端找回统一密码：方便浏览器弹出「保存密码」 */
+export const CLOUD_LOGIN_PASSWORD = '123456'
 const IDENTITY_KEY = 'susuc-cloud-identity'
 
-export function loadCloudIdentity(): { studentId: string; studentName: string } {
+export function loadCloudIdentity(): { studentId: string; password: string } {
   try {
     const raw = localStorage.getItem(IDENTITY_KEY)
-    if (!raw) return { studentId: '', studentName: '' }
-    const o = JSON.parse(raw) as { studentId?: string; studentName?: string }
+    if (!raw) return { studentId: '', password: CLOUD_LOGIN_PASSWORD }
+    const o = JSON.parse(raw) as {
+      studentId?: string
+      password?: string
+      studentName?: string
+    }
     return {
       studentId: String(o.studentId || ''),
-      studentName: String(o.studentName || ''),
+      password: String(o.password || CLOUD_LOGIN_PASSWORD),
     }
   } catch {
-    return { studentId: '', studentName: '' }
+    return { studentId: '', password: CLOUD_LOGIN_PASSWORD }
   }
 }
 
-export function saveCloudIdentity(studentId: string, studentName: string): void {
+export function saveCloudIdentity(studentId: string, password?: string): void {
   const prev = loadCloudIdentity()
   const id = normalizeStudentId(studentId) || prev.studentId
-  const name = normalizeStudentName(studentName) || prev.studentName
-  if (!id && !name) return
+  const pwd = (password || prev.password || CLOUD_LOGIN_PASSWORD).trim()
+  if (!id) return
   try {
-    localStorage.setItem(IDENTITY_KEY, JSON.stringify({ studentId: id, studentName: name }))
+    localStorage.setItem(
+      IDENTITY_KEY,
+      JSON.stringify({ studentId: id, password: pwd || CLOUD_LOGIN_PASSWORD }),
+    )
   } catch {
     /* ignore */
   }
@@ -37,17 +46,17 @@ export function looksLikeStudentId(raw: string): boolean {
 }
 
 /**
- * 写入本机 + 浏览器密码库（和 admin 一样，点选可一键填入）。
- * 姓名存在「密码」位，仅用于本站自动填充。
+ * 写入本机 + 浏览器密码库（账号=学号，密码=123456）。
+ * 和后台 admin 一样，点选可一键填入。
  */
 export async function rememberCloudIdentity(
   studentId: string,
-  studentName: string,
+  password: string = CLOUD_LOGIN_PASSWORD,
 ): Promise<void> {
   const id = normalizeStudentId(studentId)
-  const name = normalizeStudentName(studentName)
-  if (!looksLikeStudentId(id) || name.length < 2) return
-  saveCloudIdentity(id, name)
+  const pwd = (password || CLOUD_LOGIN_PASSWORD).trim() || CLOUD_LOGIN_PASSWORD
+  if (!looksLikeStudentId(id)) return
+  saveCloudIdentity(id, pwd)
   try {
     const Cred = (
       window as unknown as {
@@ -62,8 +71,8 @@ export async function rememberCloudIdentity(
     await navigator.credentials.store(
       new Cred({
         id,
-        name,
-        password: name,
+        name: id,
+        password: pwd,
       }),
     )
   } catch {
@@ -74,7 +83,7 @@ export async function rememberCloudIdentity(
 /** 点选密码库账号；忽略 admin 等非学号项 */
 export async function pickCloudIdentityFromPasswordManager(): Promise<{
   studentId: string
-  studentName: string
+  password: string
 } | null> {
   try {
     if (!navigator.credentials?.get) return null
@@ -85,10 +94,12 @@ export async function pickCloudIdentityFromPasswordManager(): Promise<{
       | (Credential & { id?: string; password?: string })
       | null
     if (!cred?.id || !looksLikeStudentId(cred.id)) return null
-    const name = normalizeStudentName(cred.password || '')
-    if (name.length < 2) return null
-    saveCloudIdentity(cred.id, name)
-    return { studentId: normalizeStudentId(cred.id), studentName: name }
+    const password = (cred.password || CLOUD_LOGIN_PASSWORD).trim()
+    saveCloudIdentity(cred.id, password)
+    return {
+      studentId: normalizeStudentId(cred.id),
+      password: password || CLOUD_LOGIN_PASSWORD,
+    }
   } catch {
     return null
   }
@@ -130,6 +141,7 @@ export async function backupStudentTimetable(
     }
     const row = data as { ok?: boolean; error?: string } | null
     if (!row?.ok) return { ok: false, error: row?.error || 'fail' }
+    void rememberCloudIdentity(payload.studentId || '', CLOUD_LOGIN_PASSWORD)
     return { ok: true }
   } catch {
     return { ok: false, error: 'network' }
@@ -138,7 +150,7 @@ export async function backupStudentTimetable(
 
 export async function restoreStudentTimetable(
   studentId: string,
-  studentName: string,
+  password: string,
 ): Promise<
   | { ok: true; payload: TimetablePayload }
   | { ok: false; error: 'missing' | 'mismatch' | 'too_many' | 'need_sql' | 'network' }
@@ -149,11 +161,13 @@ export async function restoreStudentTimetable(
   try {
     const { data, error } = await sb.rpc('restore_student_timetable', {
       p_student_id: normalizeStudentId(studentId),
-      p_student_name: normalizeStudentName(studentName),
+      p_password: (password || '').trim(),
     })
     if (error) {
       const msg = error.message || ''
-      if (/schema cache|does not exist|404/i.test(msg)) return { ok: false, error: 'need_sql' }
+      if (/schema cache|does not exist|404|Could not find/i.test(msg)) {
+        return { ok: false, error: 'need_sql' }
+      }
       return { ok: false, error: 'network' }
     }
     const row = data as {
@@ -169,6 +183,7 @@ export async function restoreStudentTimetable(
       return { ok: false, error: 'mismatch' }
     }
     if (!row.payload?.courses?.length) return { ok: false, error: 'missing' }
+    void rememberCloudIdentity(studentId, password || CLOUD_LOGIN_PASSWORD)
     return { ok: true, payload: row.payload }
   } catch {
     return { ok: false, error: 'network' }
@@ -182,7 +197,7 @@ export function restoreErrorText(
     case 'missing':
       return '还没有导入过备份'
     case 'mismatch':
-      return '学号或姓名不一致'
+      return '账号或密码不正确'
     case 'too_many':
       return '尝试次数过多，请稍后再试'
     case 'need_sql':
