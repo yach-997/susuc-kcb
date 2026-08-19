@@ -52,20 +52,20 @@ function CloudIdForm({
       <p className="text-[11px] text-muted">补全学号和姓名后可云端备份</p>
       <div className="flex gap-1.5">
         <input
-          name="username"
+          name="studentId"
           value={studentId}
           onChange={(e) => setStudentId(e.target.value)}
           required
-          autoComplete="username"
+          autoComplete="off"
           placeholder="学号"
           className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
         />
         <input
-          name="password"
+          name="studentName"
           value={studentName}
           onChange={(e) => setStudentName(e.target.value)}
           required
-          autoComplete="current-password"
+          autoComplete="off"
           placeholder="姓名"
           className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
         />

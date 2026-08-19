@@ -52,18 +52,18 @@ function PendingCloudIds({
         导入后按学号和姓名备份。开启无痕浏览后课表会丢失，可用这两项找回。
       </p>
       <input
-        name="username"
+        name="studentId"
         value={studentId}
         onChange={(e) => setStudentId(e.target.value)}
-        autoComplete="username"
+        autoComplete="off"
         placeholder="学号"
         className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
       />
       <input
-        name="password"
+        name="studentName"
         value={studentName}
         onChange={(e) => setStudentName(e.target.value)}
-        autoComplete="current-password"
+        autoComplete="off"
         placeholder="姓名"
         className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
       />

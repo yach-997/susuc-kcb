@@ -46,28 +46,28 @@ export function RestoreByName({
   return (
     <form
       onSubmit={(e) => void onSubmit(e)}
-      autoComplete="on"
+      autoComplete="off"
       className="mt-5 w-full text-left"
     >
       <p className="text-[0.7rem] leading-relaxed text-muted">
-        须先成功导入过一次。开启无痕浏览后课表会丢失，可用学号和姓名找回。本机记住这两项，下次自动填。
+        须先成功导入过一次。开启无痕浏览后课表会丢失，可用学号和姓名找回。普通窗口会记住这两项，下次自动填。
       </p>
       <input
-        name="username"
+        name="studentId"
         value={studentId}
         onChange={(e) => setStudentId(e.target.value)}
         required
         inputMode="numeric"
-        autoComplete="username"
+        autoComplete="off"
         placeholder="学号"
         className="mt-2 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand"
       />
       <input
-        name="password"
+        name="studentName"
         value={studentName}
         onChange={(e) => setStudentName(e.target.value)}
         required
-        autoComplete="current-password"
+        autoComplete="off"
         placeholder="姓名"
         className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand"
       />
