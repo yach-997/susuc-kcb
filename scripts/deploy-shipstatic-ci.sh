@@ -8,13 +8,7 @@ if [ -z "${SHIP_API_KEY:-}" ]; then
 fi
 
 DOMAIN="${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}"
-SHIP="npx -y @shipstatic/ship"
-
-echo "whoami:"
-$SHIP whoami --token "$SHIP_API_KEY" --json || true
-
-echo "validate domain:"
-$SHIP domains validate "$DOMAIN" --token "$SHIP_API_KEY" --json || true
+SHIP="./node_modules/.bin/ship"
 
 echo "prune old deployments:"
 mapfile -t OLD_IDS < <($SHIP deployments list --token "$SHIP_API_KEY" -q 2>/dev/null || true)
