@@ -661,7 +661,7 @@ export function AdminPage() {
               账号
               <input
                 type="text"
-                autoComplete="username"
+                autoComplete="section-admin username"
                 className="mt-1.5 w-full rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none focus:border-brand"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -672,7 +672,7 @@ export function AdminPage() {
               密码
               <input
                 type="password"
-                autoComplete="current-password"
+                autoComplete="section-admin current-password"
                 className="mt-1.5 w-full rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none focus:border-brand"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

@@ -6,6 +6,50 @@ export const RESTORED_TIP_KEY = 'susuc-restored-tip'
 /** 云端找回统一密码：方便浏览器弹出「保存密码」 */
 export const CLOUD_LOGIN_PASSWORD = '123456'
 const IDENTITY_KEY = 'susuc-cloud-identity'
+const REMEMBER_KEY = 'susuc-cloud-remember'
+
+export type RememberedCloudCreds = { studentId: string; password: string }
+
+export function readRememberedCloudCreds(): RememberedCloudCreds | null {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY)
+    if (!raw) return null
+    const o = JSON.parse(raw) as Partial<RememberedCloudCreds>
+    const studentId = normalizeStudentId(String(o.studentId || ''))
+    if (!looksLikeStudentId(studentId)) return null
+    const password =
+      String(o.password || CLOUD_LOGIN_PASSWORD).trim() || CLOUD_LOGIN_PASSWORD
+    return { studentId, password }
+  } catch {
+    return null
+  }
+}
+
+export function saveRememberedCloudCreds(
+  studentId: string,
+  password: string = CLOUD_LOGIN_PASSWORD,
+): void {
+  const id = normalizeStudentId(studentId)
+  const pwd = (password || CLOUD_LOGIN_PASSWORD).trim() || CLOUD_LOGIN_PASSWORD
+  if (!looksLikeStudentId(id)) return
+  try {
+    localStorage.setItem(
+      REMEMBER_KEY,
+      JSON.stringify({ studentId: id, password: pwd }),
+    )
+  } catch {
+    /* ignore */
+  }
+  saveCloudIdentity(id, pwd)
+}
+
+export function clearRememberedCloudCreds(): void {
+  try {
+    localStorage.removeItem(REMEMBER_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 export function loadCloudIdentity(): { studentId: string; password: string } {
   try {
@@ -183,7 +227,6 @@ export async function restoreStudentTimetable(
       return { ok: false, error: 'mismatch' }
     }
     if (!row.payload?.courses?.length) return { ok: false, error: 'missing' }
-    void rememberCloudIdentity(studentId, password || CLOUD_LOGIN_PASSWORD)
     return { ok: true, payload: row.payload }
   } catch {
     return { ok: false, error: 'network' }
@@ -201,7 +244,7 @@ export function restoreErrorText(
     case 'too_many':
       return '尝试次数过多，请稍后再试'
     case 'need_sql':
-      return '云端备份尚未开通'
+      return '云端找回脚本未更新，请在 Supabase 执行 student_cloud_restore_fix.sql'
     default:
       return '网络异常，请稍后重试'
   }
