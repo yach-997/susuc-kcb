@@ -47,7 +47,7 @@ function PendingCloudIds({
     <div className="mb-3 rounded-2xl border border-line bg-white/95 p-4">
       <p className="text-xs font-semibold text-brand">云端备份</p>
       <p className="mt-1 text-[0.75rem] leading-relaxed text-muted">
-        导入后按学号备份。找回时账号=学号、密码默认 123456（可保存到浏览器，一点就填上）。
+        导入后按学号备份。找回时账号=学号，密码固定 123456（不用改，可保存到浏览器）。
       </p>
       <input
         name="studentId"
