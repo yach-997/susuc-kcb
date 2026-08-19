@@ -111,6 +111,7 @@ export function loadTimetable(): TimetablePayload | null {
       ...data,
       school: '四川轻化工大学',
       studentName,
+      studentId: data.studentId?.trim() || undefined,
       courses: data.courses.map((c) => ({
         ...c,
         weekParity: c.weekParity || parseWeekParity(c.weeks || ''),
@@ -123,6 +124,9 @@ export function loadTimetable(): TimetablePayload | null {
 
 export function saveTimetable(payload: TimetablePayload): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  void import('./studentCloud').then(({ backupStudentTimetable }) =>
+    backupStudentTimetable(payload),
+  )
 }
 
 export function clearTimetable(): void {
@@ -315,6 +319,7 @@ export function decodeImportPayload(encoded: string): TimetablePayload {
     version: 1,
     school: data.school || '四川轻化工大学',
     studentName: data.studentName || studentNameFromPayload(data) || undefined,
+    studentId: data.studentId?.trim() || undefined,
     updatedAt: data.updatedAt || new Date().toISOString(),
     courses: data.courses.map((c: Course) => ({
       ...c,

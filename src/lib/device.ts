@@ -10,6 +10,15 @@ export function isStandalonePwa(): boolean {
   return false
 }
 
+export function isHuaweiOrHonor(): boolean {
+  try {
+    const ua = navigator.userAgent || ''
+    return /HuaweiBrowser|HUAWEI|HarmonyOS|HONOR/i.test(ua)
+  } catch {
+    return false
+  }
+}
+
 export function isApplePhoneOrPad(): boolean {
   try {
     const ua = navigator.userAgent || ''

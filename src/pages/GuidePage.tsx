@@ -26,6 +26,41 @@ interface Props {
   onImport: (payload: TimetablePayload) => void
 }
 
+function PendingCloudIds({
+  pending,
+  idRef,
+  nameRef,
+}: {
+  pending: TimetablePayload
+  idRef: { current: string }
+  nameRef: { current: string }
+}) {
+  const [studentId, setStudentId] = useState(pending.studentId || '')
+  const [studentName, setStudentName] = useState(pending.studentName || '')
+  idRef.current = studentId
+  nameRef.current = studentName
+  return (
+    <div className="mb-3 rounded-2xl border border-line bg-white/95 p-4">
+      <p className="text-xs font-semibold text-brand">云端备份</p>
+      <p className="mt-1 text-[0.75rem] leading-relaxed text-muted">
+        导入后按学号和姓名备份。开启无痕浏览后课表会丢失，可用这两项找回。
+      </p>
+      <input
+        value={studentId}
+        onChange={(e) => setStudentId(e.target.value)}
+        placeholder="学号"
+        className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+      />
+      <input
+        value={studentName}
+        onChange={(e) => setStudentName(e.target.value)}
+        placeholder="姓名"
+        className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+      />
+    </div>
+  )
+}
+
 export function GuidePage({ onImport }: Props) {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -40,6 +75,8 @@ export function GuidePage({ onImport }: Props) {
   const [copied, setCopied] = useState(false)
   /** 静默上传后的存储路径，随成功/失败一并上报 */
   const storagePathRef = useRef<string | null>(null)
+  const pendingIdRef = useRef('')
+  const pendingNameRef = useRef('')
   const uploadErrorRef = useRef<string | null>(null)
 
   const copySiteLink = async () => {
@@ -223,6 +260,11 @@ export function GuidePage({ onImport }: Props) {
           。可先去别处再回来，进度会保留；确认后写入课表。
         </p>
         <div className="mt-5 min-w-0 max-w-full">
+          <PendingCloudIds
+            pending={pending}
+            idRef={pendingIdRef}
+            nameRef={pendingNameRef}
+          />
           <TermMetaForm
             initialLabel={pending.termLabel}
             initialStart={pending.termStart}
@@ -237,6 +279,10 @@ export function GuidePage({ onImport }: Props) {
               finishImport(
                 {
                   ...pending,
+                  studentId:
+                    pendingIdRef.current.trim() || pending.studentId,
+                  studentName:
+                    pendingNameRef.current.trim() || pending.studentName,
                   termLabel: normalizeTermLabel(termLabel),
                   termStart,
                   updatedAt: new Date().toISOString(),

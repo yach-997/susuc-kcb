@@ -502,6 +502,7 @@ export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
     })
     .find(Boolean)
   const student = fromNamed || fromTitle || ''
+  const studentId = extractStudentId(items)
 
   const term =
     items.find((it) => /\d{4}-\d{4}学年/.test(it.str))?.str ||
@@ -532,6 +533,7 @@ export function parseZfPdfItems(items: PdfTextItem[]): TimetablePayload {
     version: 1,
     school: '四川轻化工大学',
     studentName: student || undefined,
+    studentId: studentId || undefined,
     updatedAt: new Date().toISOString(),
     courses: unique,
     termLabel: term || undefined,
@@ -546,6 +548,20 @@ function isListStylePdf(items: PdfTextItem[]): boolean {
   ).length
   const zhouShu = items.filter((it) => DETAIL_START_RE.test(it.str)).length
   return inline >= 2 && inline >= zhouShu
+}
+
+function extractStudentId(items: PdfTextItem[]): string {
+  const texts = items.map((it) => it.str.trim()).filter(Boolean)
+  for (const s of texts) {
+    const m = s.match(/学\s*号\s*[：:]\s*([0-9A-Za-z]{8,16})/)
+    if (m?.[1]) return m[1]
+  }
+  for (let i = 0; i < texts.length; i++) {
+    if (!/^学\s*号\s*[：:]?\s*$/.test(texts[i]!)) continue
+    const n = (texts[i + 1] || '').match(/^([0-9A-Za-z]{8,16})$/)
+    if (n?.[1]) return n[1]
+  }
+  return ''
 }
 
 function isNoiseItem(it: PdfTextItem): boolean {

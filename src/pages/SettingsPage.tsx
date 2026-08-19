@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AddToHomeButton } from '../components/AddToHomeButton'
+import { RestoreByName } from '../components/RestoreByName'
 import { TermMetaForm } from '../components/TermMetaForm'
 import { APP_VERSION } from '../appVersion'
 import { submitUserFeedback } from '../lib/adminApi'
@@ -14,11 +15,60 @@ import {
   summarizeCourses,
 } from '../lib/storage'
 import type { TimetablePayload } from '../types'
+import { canCloudBackup } from '../lib/studentCloud'
 
 interface Props {
   data: TimetablePayload | null
   onImport: (payload: TimetablePayload) => void
   onClear: () => void
+}
+
+function CloudIdForm({
+  data,
+  onSave,
+}: {
+  data: TimetablePayload
+  onSave: (next: TimetablePayload) => void
+}) {
+  const [studentId, setStudentId] = useState(data.studentId || '')
+  const [studentName, setStudentName] = useState(data.studentName || '')
+  return (
+    <form
+      className="mt-2 space-y-1.5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSave({
+          ...data,
+          studentId: studentId.trim(),
+          studentName: studentName.trim(),
+        })
+      }}
+    >
+      <p className="text-[11px] text-muted">补全学号和姓名后可云端备份</p>
+      <div className="flex gap-1.5">
+        <input
+          value={studentId}
+          onChange={(e) => setStudentId(e.target.value)}
+          required
+          placeholder="学号"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
+        />
+        <input
+          value={studentName}
+          onChange={(e) => setStudentName(e.target.value)}
+          required
+          placeholder="姓名"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
+        />
+        <button
+          type="submit"
+          className="shrink-0 rounded-lg bg-brand px-2.5 py-1.5 text-[12px] font-semibold text-white"
+        >
+          备份
+        </button>
+      </div>
+    </form>
+  )
 }
 
 function formatUpdatedAt(iso: string): string {
@@ -122,6 +172,20 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
                   {summary.unique} 门课 · {summary.slots} 条课次 ·{' '}
                   {formatUpdatedAt(data.updatedAt)}
                 </p>
+                {canCloudBackup(data) ? (
+                  <p className="mt-1 text-[11px] text-brand-dark">
+                    已备份云端 · 学号 {data.studentId} · 姓名 {data.studentName}
+                  </p>
+                ) : (
+                  <CloudIdForm
+                    data={data}
+                    onSave={(next) => {
+                      saveTimetable(next)
+                      onImport(next)
+                      flash('已保存，正在备份云端')
+                    }}
+                  />
+                )}
               </div>
             </div>
 
@@ -198,6 +262,7 @@ export function SettingsPage({ data, onImport, onClear }: Props) {
             >
               去导入课表
             </button>
+            <RestoreByName onRestored={onImport} />
           </>
         )}
       </section>

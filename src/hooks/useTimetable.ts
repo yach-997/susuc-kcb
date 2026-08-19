@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { TimetablePayload } from '../types'
 import { loadTimetable, saveTimetable } from '../lib/storage'
+import { JUST_IMPORTED_KEY, RESTORED_TIP_KEY } from '../lib/studentCloud'
 
 function mergeKeepingManual(
   incoming: TimetablePayload,
@@ -28,6 +29,7 @@ function mergeKeepingManual(
   return {
     ...incoming,
     studentName: incoming.studentName || existing.studentName,
+    studentId: incoming.studentId || existing.studentId,
     termLabel: incoming.termLabel || existing.termLabel,
     termStart: incoming.termStart || existing.termStart,
     courses: [...imported, ...manuals],
@@ -49,6 +51,12 @@ export function useTimetable() {
     const merged = mergeKeepingManual(payload, loadTimetable())
     saveTimetable(merged)
     setData(merged)
+    try {
+      sessionStorage.removeItem(RESTORED_TIP_KEY)
+      sessionStorage.setItem(JUST_IMPORTED_KEY, '1')
+    } catch {
+      /* ignore */
+    }
   }, [])
 
   const refresh = useCallback(() => {

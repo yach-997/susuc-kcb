@@ -30,7 +30,7 @@ function Shell() {
         {!isAdmin && <UpdateBanner />}
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <Routes>
-            <Route path="/" element={<HomePage data={data} onUpdate={setData} />} />
+            <Route path="/" element={<HomePage data={data} onUpdate={setData} onRestore={importData} />} />
             <Route path="/import" element={<ImportPage onImport={importData} />} />
             <Route path="/guide" element={<GuidePage onImport={importData} />} />
             <Route path="/admin" element={<AdminPage />} />

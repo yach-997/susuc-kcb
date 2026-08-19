@@ -7,12 +7,20 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-function detectKind(): 'wechat' | 'qq' | 'baidu' | 'ios' | 'android' | 'other' {
+function detectKind():
+  | 'wechat'
+  | 'qq'
+  | 'baidu'
+  | 'ios'
+  | 'huawei'
+  | 'android'
+  | 'other' {
   const inApp = inAppBrowserKind()
   if (inApp) return inApp
   const ua = navigator.userAgent || ''
   if (/baidubrowser|baiduboxapp/i.test(ua)) return 'baidu'
   if (/iPhone|iPad|iPod/i.test(ua)) return 'ios'
+  if (/HuaweiBrowser|HUAWEI|HarmonyOS|HONOR/i.test(ua)) return 'huawei'
   if (/Android/i.test(ua)) return 'android'
   return 'other'
 }
@@ -40,6 +48,12 @@ function deviceTips(kind: ReturnType<typeof detectKind>): string[] {
         '推荐：先添加到主屏幕，再用桌面图标打开后导入课表',
         '点底部分享（方框↑）→「添加到主屏幕」',
         '注意：Safari 里导入的课表，加到桌面后看不到（苹果系统分开存），需在桌面图标里再导入一次',
+      ]
+    case 'huawei':
+      return [
+        '先关掉无痕浏览，用普通窗口打开本页（无痕里加到桌面，关掉后课表仍会消失）',
+        '点浏览器菜单 →「添加到桌面」或「安装应用」',
+        '完全退出浏览器后，只点桌面图标打开，再导入课表',
       ]
     case 'android':
       return [

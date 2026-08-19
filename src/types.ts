@@ -33,6 +33,8 @@ export interface TimetablePayload {
   courses: Course[]
   /** 学生姓名（从教务 PDF 识别） */
   studentName?: string
+  /** 学号（从教务 PDF 识别，云端找回用） */
+  studentId?: string
   /** 学期名称，如「2025-2026 上学期」 */
   termLabel?: string
   /** 第一周周一日期 YYYY-MM-DD，用于推算当前教学周与日期 */
