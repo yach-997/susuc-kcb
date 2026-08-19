@@ -78,9 +78,5 @@ function pruneOldDeployments(token) {
 const raw = process.argv.slice(2)
 const mapped = mapArgs(raw)
 
-if (isUploadInvocation(mapped)) {
-  pruneOldDeployments(tokenFromArgs([...raw, ...mapped]))
-}
-
 const r = run(mapped)
 process.exit(r.status ?? 1)
