@@ -11,13 +11,18 @@ DOMAIN="${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}"
 SHIP="./node_modules/.bin/ship"
 
 DEPLOY_ID=""
-for attempt in 1 2 3 4 5 6; do
+for attempt in 1 2 3; do
   echo "upload attempt $attempt"
-  if DEPLOY_ID=$($SHIP ./dist --token "$SHIP_API_KEY" -q); then
+  if DEPLOY_ID=$(timeout 120 "$SHIP" ./dist --token "$SHIP_API_KEY" -q); then
     break
   fi
-  echo "upload failed (often async delete still running); sleep 8s"
-  sleep 8
+  code=$?
+  if [ "$code" -eq 124 ]; then
+    echo "upload timed out after 120s"
+  else
+    echo "upload failed (exit $code)"
+  fi
+  sleep 5
 done
 
 if [ -z "${DEPLOY_ID:-}" ]; then
