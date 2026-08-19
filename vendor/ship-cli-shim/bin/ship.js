@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const realBin = require.resolve('ship-real/bin/ship.js')
+const realBin = require.resolve('ship-real/cli')
 
 function mapArgs(argv) {
   const mapped = []
