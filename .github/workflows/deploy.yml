@@ -110,15 +110,21 @@ jobs:
           path: dist
 
       - name: Deploy ShipStatic (fixed domain)
+        continue-on-error: true
         env:
           SHIP_API_KEY: ${{ secrets.SHIP_API_KEY }}
           SHIP_DOMAIN: ${{ vars.SHIP_DOMAIN }}
         run: |
-          set -euo pipefail
+          set +e
           if [ -z "${SHIP_API_KEY:-}" ]; then
             echo "未配置 SHIP_API_KEY，跳过国内固定域名部署。" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           bash scripts/deploy-shipstatic-ci.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          rc=$?
           echo "### 国内固定地址（同学收藏这一个）" >> "$GITHUB_STEP_SUMMARY"
           echo "https://${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}/" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" -ne 0 ]; then
+            echo "⚠️ ShipStatic 自动上传未成功（GitHub 国外节点常见），GitHub Pages 已更新。" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
