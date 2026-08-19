@@ -241,7 +241,8 @@ export function HomePage({ data, onUpdate, onRestore }: Props) {
     onApple && !standalone && !!(data && data.courses.length > 0)
   const showIosStandaloneEmptyTip =
     onApple && standalone && (!data || data.courses.length === 0)
-  const showHuaweiIncognitoTip = onHuawei && !standalone
+  const showHuaweiIncognitoTip =
+    onHuawei && !standalone && (!data || data.courses.length === 0)
   const [cloudTip, setCloudTip] = useState<string | null>(() => {
     try {
       if (sessionStorage.getItem(RESTORED_TIP_KEY)) {
