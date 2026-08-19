@@ -1,20 +1,18 @@
 /**
- * npm ci 后把 node_modules/.bin/ship 指向本地 shim（Node 包装，兼容 Linux CI）。
+ * npm ci 后覆盖 node_modules/.bin/ship，指向本地 shim。
+ * 使用 postinstall 时的绝对路径，避免 Linux CI 上 __dirname 解析错误。
  */
 import { writeFileSync, chmodSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const shim = join(root, 'vendor/ship-cli-shim/bin/ship.js')
+const shim = resolve(root, 'vendor/ship-cli-shim/bin/ship.js')
 const binDir = join(root, 'node_modules', '.bin')
-const relShim = join('..', '..', 'vendor', 'ship-cli-shim', 'bin', 'ship.js').replace(/\\/g, '/')
 
 const wrapper = `#!/usr/bin/env node
 const { spawnSync } = require('node:child_process')
-const { join } = require('node:path')
-const shim = join(__dirname, '${relShim}')
-const r = spawnSync(process.execPath, [shim, ...process.argv.slice(2)], { stdio: 'inherit' })
+const r = spawnSync(process.execPath, [${JSON.stringify(shim)}, ...process.argv.slice(2)], { stdio: 'inherit' })
 process.exit(r.status ?? 1)
 `
 
@@ -34,4 +32,4 @@ try {
   /* windows */
 }
 
-console.log('linked ship CLI shim -> vendor/ship-cli-shim/bin/ship.js')
+console.log('linked ship CLI shim ->', shim)
