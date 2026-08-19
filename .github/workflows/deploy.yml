@@ -70,14 +70,9 @@ jobs:
             echo "同学只需收藏 https://susuc-kcb.shipstatic.com/ ，以后刷新即可。" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          # CLI 要求完整 FQDN；裸名 susuc-kcb 会报 Invalid domain name
-          DOMAIN="${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}"
-          echo "whoami:"
-          npx -y @shipstatic/ship whoami --api-key "$SHIP_API_KEY" --json || true
-          echo "validate domain:"
-          npx -y @shipstatic/ship domains validate "$DOMAIN" --api-key "$SHIP_API_KEY" --json || true
-          DEPLOY_ID=$(npx -y @shipstatic/ship ./dist --api-key "$SHIP_API_KEY" -q)
-          echo "deployment=$DEPLOY_ID"
+                   bash scripts/deploy-shipstatic-ci.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "### 国内固定地址（同学收藏这一个）" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}/" >> "$GITHUB_STEP_SUMMARY"
           # -q 可能返回带 .shipstatic.com 的完整主机名
           npx -y @shipstatic/ship domains set "$DOMAIN" "$DEPLOY_ID" --api-key "$SHIP_API_KEY" --json
           echo "### 国内固定地址（同学收藏这一个）" >> "$GITHUB_STEP_SUMMARY"
