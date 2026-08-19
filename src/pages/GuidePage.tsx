@@ -18,6 +18,7 @@ import { prefetchCriticalCmaps } from '../lib/pdfAssets'
 import { isApplePhoneOrPad, isStandalonePwa } from '../lib/device'
 import { hardRefreshApp } from '../lib/hardRefresh'
 import { normalizeTermLabel, summarizeCourses } from '../lib/storage'
+import { loadCloudIdentity } from '../lib/studentCloud'
 import { uploadTimetablePdf } from '../lib/pdfUpload'
 import { trackImportFail, trackImportSuccess } from '../lib/telemetry'
 import type { TimetablePayload } from '../types'
@@ -35,8 +36,13 @@ function PendingCloudIds({
   idRef: { current: string }
   nameRef: { current: string }
 }) {
-  const [studentId, setStudentId] = useState(pending.studentId || '')
-  const [studentName, setStudentName] = useState(pending.studentName || '')
+  const remembered = loadCloudIdentity()
+  const [studentId, setStudentId] = useState(
+    pending.studentId || remembered.studentId,
+  )
+  const [studentName, setStudentName] = useState(
+    pending.studentName || remembered.studentName,
+  )
   idRef.current = studentId
   nameRef.current = studentName
   return (
@@ -46,14 +52,18 @@ function PendingCloudIds({
         导入后按学号和姓名备份。开启无痕浏览后课表会丢失，可用这两项找回。
       </p>
       <input
+        name="username"
         value={studentId}
         onChange={(e) => setStudentId(e.target.value)}
+        autoComplete="username"
         placeholder="学号"
         className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
       />
       <input
+        name="password"
         value={studentName}
         onChange={(e) => setStudentName(e.target.value)}
+        autoComplete="current-password"
         placeholder="姓名"
         className="mt-1.5 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
       />

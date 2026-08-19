@@ -20,6 +20,7 @@ import {
   canCloudBackup,
   JUST_IMPORTED_KEY,
   RESTORED_TIP_KEY,
+  loadCloudIdentity,
 } from '../lib/studentCloud'
 import type { Course, TimetablePayload } from '../types'
 
@@ -69,8 +70,13 @@ function CloudIdPrompt({
   data: TimetablePayload
   onSave: (next: TimetablePayload) => void
 }) {
-  const [studentId, setStudentId] = useState(data.studentId || '')
-  const [studentName, setStudentName] = useState(data.studentName || '')
+  const remembered = loadCloudIdentity()
+  const [studentId, setStudentId] = useState(
+    data.studentId || remembered.studentId,
+  )
+  const [studentName, setStudentName] = useState(
+    data.studentName || remembered.studentName,
+  )
   return (
     <form
       className="mx-3 mt-2 rounded-xl border border-line bg-white px-3 py-2.5"
@@ -88,16 +94,20 @@ function CloudIdPrompt({
       </p>
       <div className="mt-2 flex gap-1.5">
         <input
+          name="username"
           value={studentId}
           onChange={(e) => setStudentId(e.target.value)}
           required
+          autoComplete="username"
           placeholder="学号"
           className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
         />
         <input
+          name="password"
           value={studentName}
           onChange={(e) => setStudentName(e.target.value)}
           required
+          autoComplete="current-password"
           placeholder="姓名"
           className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[13px] outline-none focus:border-brand"
         />

@@ -3,6 +3,33 @@ import { getSupabase, isSupabaseConfigured } from './supabase'
 
 export const JUST_IMPORTED_KEY = 'susuc-just-imported'
 export const RESTORED_TIP_KEY = 'susuc-restored-tip'
+const IDENTITY_KEY = 'susuc-cloud-identity'
+
+export function loadCloudIdentity(): { studentId: string; studentName: string } {
+  try {
+    const raw = localStorage.getItem(IDENTITY_KEY)
+    if (!raw) return { studentId: '', studentName: '' }
+    const o = JSON.parse(raw) as { studentId?: string; studentName?: string }
+    return {
+      studentId: String(o.studentId || ''),
+      studentName: String(o.studentName || ''),
+    }
+  } catch {
+    return { studentId: '', studentName: '' }
+  }
+}
+
+export function saveCloudIdentity(studentId: string, studentName: string): void {
+  const prev = loadCloudIdentity()
+  const id = normalizeStudentId(studentId) || prev.studentId
+  const name = normalizeStudentName(studentName) || prev.studentName
+  if (!id && !name) return
+  try {
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify({ studentId: id, studentName: name }))
+  } catch {
+    /* ignore */
+  }
+}
 
 export function normalizeStudentId(raw: string): string {
   return raw.replace(/\s+/g, '').toUpperCase()

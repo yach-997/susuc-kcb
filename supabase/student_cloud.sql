@@ -84,16 +84,16 @@ as $$
 declare
   sid text;
   sname text;
-  bucket timestamptz;
+  hit_bucket timestamptz;
   hit int;
   rec public.student_cloud%rowtype;
 begin
   sid := regexp_replace(upper(trim(coalesce(p_student_id, ''))), '\s+', '', 'g');
   sname := regexp_replace(trim(coalesce(p_student_name, '')), '\s+', '', 'g');
-  bucket := date_trunc('hour', now());
+  hit_bucket := date_trunc('hour', now());
 
   insert into public.student_restore_hits (student_id, bucket, hits)
-  values (coalesce(nullif(sid, ''), '-'), bucket, 1)
+  values (coalesce(nullif(sid, ''), '-'), hit_bucket, 1)
   on conflict (student_id, bucket) do update
     set hits = public.student_restore_hits.hits + 1
   returning hits into hit;
