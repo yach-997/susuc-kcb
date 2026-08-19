@@ -9,7 +9,8 @@
     "postinstall": "node scripts/link-ship-shim.mjs",
     "preview": "vite preview",
     "icons": "node scripts/generate-icons.mjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "deploy:cn": "node scripts/deploy-shipstatic-local.mjs"
   },
   "dependencies": {
     "@lucius-ai/chat-widget": "^1.0.0",
