@@ -7,6 +7,6 @@
     "ship": "./bin/ship.js"
   },
   "dependencies": {
-    "ship-real": "npm:@shipstatic/ship@^2.3.3"
+    "@shipstatic/ship-real-cli": "npm:@shipstatic/ship@^2.3.3"
   }
 }
