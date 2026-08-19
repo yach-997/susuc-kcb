@@ -6,6 +6,7 @@ import {
   readRememberedCloudCreds,
   saveRememberedCloudCreds,
   clearRememberedCloudCreds,
+  loadCloudIdentity,
   rememberCloudIdentity,
   pickCloudIdentityFromPasswordManager,
   looksLikeStudentId,
@@ -20,11 +21,15 @@ export function RestoreByName({
   onRestored: (payload: TimetablePayload) => void
 }) {
   const saved = readRememberedCloudCreds()
-  const [account, setAccount] = useState(saved?.studentId ?? '')
+  const identity = loadCloudIdentity()
+  const [account, setAccount] = useState(
+    saved?.studentId ||
+      (looksLikeStudentId(identity.studentId) ? identity.studentId : ''),
+  )
   const [password, setPassword] = useState(
     saved?.password ?? CLOUD_LOGIN_PASSWORD,
   )
-  const [remember, setRemember] = useState(() => !!saved)
+  const [remember, setRemember] = useState(true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 

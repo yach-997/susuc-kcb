@@ -197,11 +197,20 @@ export async function restoreStudentTimetable(
   password: string,
 ): Promise<
   | { ok: true; payload: TimetablePayload }
-  | { ok: false; error: 'missing' | 'mismatch' | 'too_many' | 'need_sql' | 'network' }
+  | {
+      ok: false
+      error:
+        | 'missing'
+        | 'mismatch'
+        | 'too_many'
+        | 'need_sql'
+        | 'not_configured'
+        | 'network'
+    }
 > {
-  if (!isSupabaseConfigured()) return { ok: false, error: 'need_sql' }
+  if (!isSupabaseConfigured()) return { ok: false, error: 'not_configured' }
   const sb = getSupabase()
-  if (!sb) return { ok: false, error: 'need_sql' }
+  if (!sb) return { ok: false, error: 'not_configured' }
   try {
     const { data, error } = await sb.rpc('restore_student_timetable', {
       p_student_id: normalizeStudentId(studentId),
@@ -234,7 +243,13 @@ export async function restoreStudentTimetable(
 }
 
 export function restoreErrorText(
-  error: 'missing' | 'mismatch' | 'too_many' | 'need_sql' | 'network',
+  error:
+    | 'missing'
+    | 'mismatch'
+    | 'too_many'
+    | 'need_sql'
+    | 'not_configured'
+    | 'network',
 ): string {
   switch (error) {
     case 'missing':
@@ -243,6 +258,8 @@ export function restoreErrorText(
       return '账号或密码不正确'
     case 'too_many':
       return '尝试次数过多，请稍后再试'
+    case 'not_configured':
+      return '云端未连接，请强制刷新页面；仍不行请联系管理员'
     case 'need_sql':
       return '云端找回脚本未更新，请在 Supabase 执行 student_cloud_restore_fix.sql'
     default:
