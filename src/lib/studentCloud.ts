@@ -31,6 +31,67 @@ export function saveCloudIdentity(studentId: string, studentName: string): void 
   }
 }
 
+/** 学号形态，用来过滤掉后台 admin 等账号 */
+export function looksLikeStudentId(raw: string): boolean {
+  return /^[0-9A-Za-z]{8,16}$/.test(normalizeStudentId(raw))
+}
+
+/**
+ * 写入本机 + 浏览器密码库（和 admin 一样，点选可一键填入）。
+ * 姓名存在「密码」位，仅用于本站自动填充。
+ */
+export async function rememberCloudIdentity(
+  studentId: string,
+  studentName: string,
+): Promise<void> {
+  const id = normalizeStudentId(studentId)
+  const name = normalizeStudentName(studentName)
+  if (!looksLikeStudentId(id) || name.length < 2) return
+  saveCloudIdentity(id, name)
+  try {
+    const Cred = (
+      window as unknown as {
+        PasswordCredential?: new (data: {
+          id: string
+          name?: string
+          password: string
+        }) => Credential
+      }
+    ).PasswordCredential
+    if (!Cred || !navigator.credentials?.store) return
+    await navigator.credentials.store(
+      new Cred({
+        id,
+        name,
+        password: name,
+      }),
+    )
+  } catch {
+    /* 不支持或用户拒绝 */
+  }
+}
+
+/** 点选密码库账号；忽略 admin 等非学号项 */
+export async function pickCloudIdentityFromPasswordManager(): Promise<{
+  studentId: string
+  studentName: string
+} | null> {
+  try {
+    if (!navigator.credentials?.get) return null
+    const cred = (await navigator.credentials.get({
+      password: true,
+      mediation: 'optional',
+    })) as (Credential & { id?: string; password?: string }) | null
+    if (!cred?.id || !looksLikeStudentId(cred.id)) return null
+    const name = normalizeStudentName(cred.password || '')
+    if (name.length < 2) return null
+    saveCloudIdentity(cred.id, name)
+    return { studentId: normalizeStudentId(cred.id), studentName: name }
+  } catch {
+    return null
+  }
+}
+
 export function normalizeStudentId(raw: string): string {
   return raw.replace(/\s+/g, '').toUpperCase()
 }
