@@ -10,14 +10,6 @@ fi
 DOMAIN="${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}"
 SHIP="./node_modules/.bin/ship"
 
-echo "prune old deployments:"
-mapfile -t OLD_IDS < <($SHIP deployments list --token "$SHIP_API_KEY" -q 2>/dev/null || true)
-for id in "${OLD_IDS[@]:-}"; do
-  [ -z "${id:-}" ] && continue
-  echo "  delete $id"
-  $SHIP deployments delete "$id" --token "$SHIP_API_KEY" -q || true
-done
-
 DEPLOY_ID=""
 for attempt in 1 2 3 4 5 6; do
   echo "upload attempt $attempt"
