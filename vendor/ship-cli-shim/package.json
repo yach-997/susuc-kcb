@@ -1,0 +1,12 @@
+{
+  "name": "@shipstatic/ship",
+  "version": "99.0.0-shim",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "ship": "./bin/ship.js"
+  },
+  "dependencies": {
+    "ship-real": "npm:@shipstatic/ship@^1.0.0"
+  }
+}
