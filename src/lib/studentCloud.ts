@@ -257,7 +257,7 @@ export function restoreErrorText(
     case 'mismatch':
       return '账号或密码不正确'
     case 'too_many':
-      return '尝试次数过多，请稍后再试'
+      return '尝试次数过多（每小时限 20 次），请稍后再试'
     case 'not_configured':
       return '云端未连接，请强制刷新页面；仍不行请联系管理员'
     case 'need_sql':

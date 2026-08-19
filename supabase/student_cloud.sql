@@ -101,7 +101,7 @@ begin
     set hits = public.student_restore_hits.hits + 1
   returning hits into hit;
 
-  if hit > 8 then
+  if hit > 20 then
     return json_build_object('ok', false, 'error', 'too_many');
   end if;
 

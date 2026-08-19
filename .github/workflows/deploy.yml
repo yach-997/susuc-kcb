@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -42,37 +42,12 @@ jobs:
         with:
           path: dist
 
-      - name: Rewrite HTML assets to jsDelivr
-        run: node scripts/rewrite-cdn-html.mjs
-
-      - name: Publish CDN mirror branch
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload dist bundle
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: cdn
-          force_orphan: true
-          commit_message: 'cdn: publish static build'
-
-      # 国内固定域名：每次 push 自动覆盖同一地址，同学不用换链接
-      # 需在 GitHub → Settings → Secrets 添加 SHIP_API_KEY
-      - name: Deploy ShipStatic (fixed domain)
-        id: ship
-        continue-on-error: true
-        env:
-          SHIP_API_KEY: ${{ secrets.SHIP_API_KEY }}
-          SHIP_DOMAIN: ${{ vars.SHIP_DOMAIN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${SHIP_API_KEY:-}" ]; then
-            echo "未配置 SHIP_API_KEY，跳过国内固定域名部署。" | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "在仓库 Settings → Secrets and variables → Actions 添加 SHIP_API_KEY 后，" | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "同学只需收藏 https://susuc-kcb.shipstatic.com/ ，以后刷新即可。" | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          bash scripts/deploy-shipstatic-ci.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "### 国内固定地址（同学收藏这一个）" >> "$GITHUB_STEP_SUMMARY"
-          echo "https://${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}/" >> "$GITHUB_STEP_SUMMARY"
+          name: dist
+          path: dist
+          retention-days: 1
 
   deploy-pages:
     needs: build
@@ -84,3 +59,66 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  publish-cdn:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Rewrite HTML assets to jsDelivr
+        run: node scripts/rewrite-cdn-html.mjs
+
+      - name: Publish CDN mirror branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/publish-cdn-branch.sh
+
+  deploy-shipstatic:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy ShipStatic (fixed domain)
+        env:
+          SHIP_API_KEY: ${{ secrets.SHIP_API_KEY }}
+          SHIP_DOMAIN: ${{ vars.SHIP_DOMAIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SHIP_API_KEY:-}" ]; then
+            echo "未配置 SHIP_API_KEY，跳过国内固定域名部署。" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          bash scripts/deploy-shipstatic-ci.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "### 国内固定地址（同学收藏这一个）" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${SHIP_DOMAIN:-susuc-kcb.shipstatic.com}/" >> "$GITHUB_STEP_SUMMARY"
